@@ -1,4 +1,4 @@
-## SAP Hana SQL Exporter for Prometheus ![Go Report Card](https://goreportcard.com/badge/github.com/ulranh/hana_sql_exporter) ![Docker Pulls](https://img.shields.io/docker/pulls/ulranh/hana-sql-exporter)
+## SAP Hana SQL Exporter for Prometheus [![Go Report Card](https://goreportcard.com/badge/github.com/ulranh/hana_sql_exporter)](https://goreportcard.com/report/github.com/ulranh/hana_sql_exporter) [![Docker Pulls](https://img.shields.io/docker/pulls/ulranh/hana-sql-exporter)](https://hub.docker.com/r/ulranh/hana-sql-exporter)
 
 The purpose of this exporter is to support monitoring SAP and SAP Hana database instances with [Prometheus](https://prometheus.io) and [Grafana](https://grafana.com).
 
