@@ -1,0 +1,45 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: hana-sql-exporter
+  labels:
+    app: hana-sql-exporter
+  namespace: sap
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: hana-sql-exporter
+  template:
+    metadata:
+      labels:
+        app: hana-sql-exporter
+    spec:
+      containers:
+      - name: hana-sql-exporter
+        image: ulranh/hana-sql-exporter:latest
+        ports:
+        - containerPort: 3030
+        volumeMounts:
+          - name: config-volume
+            mountPath: /app/hana_sql_exporter.toml
+            subPath: hana_sql_exporter.toml
+      volumes:
+          - name: config-volume
+            configMap:
+              name: hana-config
+
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: hana-sql-exporter
+  namespace: sap
+spec:
+  ports:
+  - name: http
+    port: 3030
+    targetPort: 3030
+  selector:
+    app: hana-sql-exporter
