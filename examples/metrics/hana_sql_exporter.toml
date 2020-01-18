@@ -1,0 +1,141 @@
+# Configfile example
+
+[[Tenants]]
+  Name = "d01"
+  Tags = ["abap"]
+  ConnStr = "host1.example.com:31041"
+  User = "hanauser1"
+
+[[Tenants]]
+  Name = "d02"
+  Tags = []
+  ConnStr = "host2.example.com:31044"
+  User = "hanauser2"
+
+[[Metrics]]
+  Name = "hdb_backup_status"
+  Help = "Status of last hana backup."
+  MetricType = "gauge"
+  TagFilter = []
+  SchemaFilter = ["sys"]
+  SQL = "select (case when state_name = 'successful' then 0 when state_name = 'running' then 1 else -1 end), entry_type_name as type from <SCHEMA>.m_backup_catalog where entry_id in (select max(entry_id) from m_backup_catalog group by entry_type_name)"
+
+[[Metrics]]
+  Name = "hdb_replication_status"
+  Help = "Status of system replication."
+  MetricType = "gauge"
+  TagFilter = []
+  SchemaFilter = ["sys"]
+  SQL = "select top 1 (case when replication_status = 'active' then 1 when replication_status = 'error' then -1 else 0 end) from <SCHEMA>.m_service_replication"
+
+[[Metrics]]
+  Name = "hdb_table_locks"
+  Help = "Hana table locks."
+  MetricType = "gauge"
+  TagFilter = []
+  SchemaFilter = ["sys"]
+  SQL = "select count(*) from <SCHEMA>.m_table_locks"
+
+[[Metrics]]
+  Name = "hdb_blocked_transactions"
+  Help = "Hana blocked transactions."
+  MetricType = "gauge"
+  TagFilter = []
+  SchemaFilter = ["sys"]
+  SQL = "select count(*) from <SCHEMA>.m_blocked_transactions"
+
+[[Metrics]]
+  Name = "hdb_allocated_rowstore_size"
+  Help = "Hana - allocated rowstore size"
+  MetricType = "gauge"
+  TagFilter = []
+  SchemaFilter = ["sys"]
+  SQL = "select allocated_size,port from <SCHEMA>.m_rs_memory where category='TABLE'"
+
+[[Metrics]]
+  Name = "hdb_active_connections"
+  Help = "Active Hana connections per service"
+  MetricType = "gauge"
+  TagFilter = []
+  SchemaFilter = ["sys"]
+  SQL = "select COUNT(IFNULL(C.CONNECTION_STATUS, 'IDLE')) as connections, S.service_name as service FROM <SCHEMA>.M_CONNECTIONS C inner join <SCHEMA>.M_SERVICES S on C.PORT = S.PORT WHERE C.LOGICAL_CONNECTION_ID = C.CONNECTION_ID AND C.OWN = 'FALSE' group by S.service_name"
+
+[[Metrics]]
+  Name = "hdb_active_status"
+  Help = "Check if hana db tenant is active"
+  MetricType = "gauge"
+  TagFilter = []
+  SchemaFilter = ["sys"]
+  SQL = "select top 1 (case when active_status = 'YES' then 1 else -1 end), database_name from <SCHEMA>.m_databases"
+
+[[Metrics]]
+  Name = "hdb_orders_day_total"
+  Help = "SAP orders of the current day separated in types"
+  MetricType = "counter"
+  TagFilter = ["abap", "erp"]
+  SchemaFilter = ["sapabap1", "sapabap","sapewm"]
+  SQL = "select sum(1),auart from <SCHEMA>.vbak where erdat = CURRENT_UTCDATE group by auart"
+
+[[Metrics]]
+  Name = "hdb_new_orders_day_total"
+  Help = "SAP new orders of the current day separated in sales units"
+  MetricType = "counter"
+  TagFilter = ["abap", "erp"]
+  SchemaFilter = ["sapabap1", "sapabap","sapewm"]
+  SQL = "select sum(cast(netwr as double)),waerk,vkorg from <SCHEMA>.vbak where erdat = CURRENT_UTCDATE group by waerk,vkorg"
+
+[[Metrics]]
+  Name = "hdb_smq1_hanging_queues"
+  Help = "SMQ1 - Hanging Outbound Queues"
+  MetricType = "gauge"
+  TagFilter = ["abap"]
+  SchemaFilter = ["sapabap1", "sapabap","sapewm"]
+  SQL = "select count(*) from <SCHEMA>.trfcqout where qstate not in ('READ','READY')"
+
+[[Metrics]]
+  Name = "hdb_oldest_backup_days"
+  Help = "Oldest Backup found in backup_catalog."
+  MetricType = "gauge"
+  TagFilter = []
+  SchemaFilter = ["sys"]
+  Sql = "SELECT DAYS_BETWEEN(MIN(SYS_START_TIME), CURRENT_TIMESTAMP) OLDEST_BACKUP_DAYS FROM <SCHEMA>.M_BACKUP_CATALOG"
+
+[[Metrics]]
+  Name = "hdb_version"
+  Help = "Hana database version."
+  MetricType = "gauge"
+  TagFilter = []
+  SchemaFilter = ["sys"]
+  Sql = "select top 1 DAYS_BETWEEN(START_TIME, CURRENT_TIMESTAMP) as days, version from <SCHEMA>.M_DATABASE"
+
+[[Metrics]]
+  Name = "hdb_cancelled_jobs"
+  Help = "Sap jobs with status cancelled/aborted (today)"
+  MetricType = "counter"
+  TagFilter = ["abap"]
+  SchemaFilter = ["sapabap1", "sapabap","sapewm"]
+  Sql = "select count(*) from <SCHEMA>.tbtco where enddate=current_utcdate and status='A'"
+
+[[Metrics]]
+  Name = "hdb_completed_jobs"
+  Help = "Sap jobs with status completed (today)"
+  MetricType = "counter"
+  TagFilter = ["abap"]
+  SchemaFilter = ["sapabap1", "sapabap","sapewm"]
+  Sql = "select count(*) from <SCHEMA>.tbtco where enddate=current_utcdate and status='F'"
+
+[[Metrics]]
+  Name = "hdb_active_jobs"
+  Help = "Sap jobs with status active"
+  MetricType = "gauge"
+  TagFilter = ["abap"]
+  SchemaFilter = ["sapabap1", "sapabap","sapewm"]
+  Sql = "select count(*) from <SCHEMA>.tbtco where status='R'"
+
+[[Metrics]]
+  Name = "hdb_ready_jobs"
+  Help = "Sap jobs with status ready"
+  MetricType = "gauge"
+  TagFilter = ["abap"]
+  SchemaFilter = ["sapabap1", "sapabap","sapewm"]
+  Sql = "select count(*) from <SCHEMA>.tbtco where status='Y'"
