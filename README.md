@@ -63,7 +63,7 @@ The file contains a Tenants slice followed by a Metrics Slice:
 
 Below is a description of the tenant and metric struct fields:
 
-**Tenant information**
+#### Tenant information
 
 | Field      | Type         | Description | Example |
 | ---------- | ------------ |------------ | ------- |
@@ -72,7 +72,7 @@ Below is a description of the tenant and metric struct fields:
 | ConnString | string       | Connection string \<hostname\>:\<tenant sql port\> - the sql port can be selected in the following way on the system db: "select database_name,sql_port from sys_databases.m_services"  | "host.domain:31041" | 
 | User       | string       | Tenant database user name | |
 
-**Metric information**
+#### Metric information
 
 | Field        | Type         | Description | Example |
 | ------------ | ------------ |------------ | ------- |
