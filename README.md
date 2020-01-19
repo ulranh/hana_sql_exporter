@@ -139,6 +139,6 @@ The necessary entries in the prometheus configfile can look something like the f
 ## Result
 The resulting information can be found in the Prometheus expression browser and can be used as normal for creating alerts or displaying dashboards in Grafana.
 
-For example the following image shows the duration of all complete data backups. With one dashboard it is possible to detect hanging or aborted backups of all systems:
+The following image shows for example the duration of all complete data backups. With one dashboard it is possible to detect hanging or aborted backups of all systems:
 
  ![backups](/examples/images/backups.png)
