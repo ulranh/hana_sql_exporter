@@ -75,7 +75,7 @@ var paramMap = map[string]*struct {
 	},
 	"port": {
 		value: "9658",
-		usage: "Client port (default: 9658)",
+		usage: "Client port",
 	},
 	"config": {
 		value: "",
