@@ -100,7 +100,7 @@ $ ./hana_sql_exporter pw -tenant q01,qj1 -config ./hana_sql_exporter.toml
 Now the web server can be started:
 #### Binary
 
-The default port is 3030 which can be changed with the -port flag.
+The default port is 9658 which can be changed with the -port flag.
 ```
 $ ./hana_sql_exporter web -config ./hana_sql_exporter.toml
 ```
@@ -108,7 +108,7 @@ $ ./hana_sql_exporter web -config ./hana_sql_exporter.toml
 #### Docker
 The Docker image can be downloaded from Docker Hub or build with the Dockerfile. Then it can be started as follows:
 ```
-$ docker run -d --name=hana_exporter --restart=always -p 3030:3030 -v /home/<user>/hana_sql_exporter.toml:/app/hana_sql_exporter.toml \<image name\>
+$ docker run -d --name=hana_exporter --restart=always -p 9658:9658 -v /home/<user>/hana_sql_exporter.toml:/app/hana_sql_exporter.toml \<image name\>
 ```
 #### Kubernetes
 An example config can be found in the examples folder. First of all create a sap namespace. Then apply the created configfile above as configmap and start the deployment:
@@ -130,9 +130,9 @@ The necessary entries in the prometheus configfile can look something like the f
   - job_name: hana-exporter
         scrape_interval: 60s
         static_configs:
-          - targets: ['172.45.111.105:3030']
+          - targets: ['172.45.111.105:9658']
             labels:  {'instance': 'hana-exporter-test'}
-          - targets: ['hana-exporter.sap.svc.cluster.local:3030']
+          - targets: ['hana-exporter.sap.svc.cluster.local:9658']
             labels:  {'instance': 'hana-exporter-dev'}
 ```
 

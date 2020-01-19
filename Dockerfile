@@ -18,5 +18,5 @@ RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build
 FROM scratch
 COPY --from=builder /app/hana_sql_exporter /app/
 
-EXPOSE 3030
-ENTRYPOINT ["/app/hana_sql_exporter","web","--port","3030","--config","/app/hana_sql_exporter.toml"]
+EXPOSE 9658
+ENTRYPOINT ["/app/hana_sql_exporter","web","--port","9658","--config","/app/hana_sql_exporter.toml"]

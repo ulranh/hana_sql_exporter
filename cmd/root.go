@@ -74,8 +74,8 @@ var paramMap = map[string]*struct {
 		usage: "Name(s) of tenant(s) - lower case words separated by comma (required)\ne.g. -tenant P01,P02",
 	},
 	"port": {
-		value: "3030",
-		usage: "Client port (default: 3030)",
+		value: "9658",
+		usage: "Client port (default: 9658)",
 	},
 	"config": {
 		value: "",
