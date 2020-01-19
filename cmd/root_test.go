@@ -7,7 +7,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/ulranh/sap/hana_sql_exporter/internal"
+	"github.com/ulranh/hana_sql_exporter/internal"
 )
 
 func Test_cmdParams(t *testing.T) {

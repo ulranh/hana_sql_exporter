@@ -1,4 +1,4 @@
-module github.com/ulranh/sap/hana_sql_exporter
+module github.com/ulranh/hana_sql_exporter
 
 go 1.13
 

@@ -2,7 +2,7 @@ package main
 
 import (
 	log "github.com/sirupsen/logrus"
-	"github.com/ulranh/sap/hana_sql_exporter/cmd"
+	"github.com/ulranh/hana_sql_exporter/cmd"
 )
 
 func main() {

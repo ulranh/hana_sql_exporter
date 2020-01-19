@@ -14,7 +14,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	log "github.com/sirupsen/logrus"
-	"github.com/ulranh/sap/hana_sql_exporter/internal"
+	"github.com/ulranh/hana_sql_exporter/internal"
 )
 
 type collector struct {

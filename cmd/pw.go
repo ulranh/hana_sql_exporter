@@ -9,7 +9,7 @@ import (
 	"github.com/BurntSushi/toml"
 	"github.com/golang/protobuf/proto"
 	"github.com/pkg/errors"
-	"github.com/ulranh/sap/hana_sql_exporter/internal"
+	"github.com/ulranh/hana_sql_exporter/internal"
 	"golang.org/x/crypto/ssh/terminal"
 )
 
