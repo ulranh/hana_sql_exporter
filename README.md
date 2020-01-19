@@ -8,7 +8,7 @@ The exporter can be downloaded as [released Version](https://github.com/ulranh/h
 ```
 $ git clone git@github.com:ulranh/hana_sql_exporter.git
 $ cd hana_sql_exporter
-$ go install
+$ go build
 ```
 ## Preparation
 
