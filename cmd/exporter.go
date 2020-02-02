@@ -22,17 +22,17 @@ type collector struct {
 	Desc *prometheus.Desc
 
 	// a parameterized function used to gather metrics.
-	stats func() []metric
-}
-
-type metric struct {
-	name   string
-	help   string
-	metric *metricInfo
-	stats  []*metricData
+	stats func() []metricData
 }
 
 type metricData struct {
+	name       string
+	help       string
+	metricType string
+	stats      []*statData
+}
+
+type statData struct {
 	value       float64
 	labels      []string
 	labelValues []string
@@ -89,7 +89,7 @@ func (config *Config) web(flags map[string]*string) error {
 		}
 	}
 
-	stats := func() []metric {
+	stats := func() []metricData {
 		data := config.collectMetrics()
 		return data
 	}
@@ -115,14 +115,14 @@ func (config *Config) web(flags map[string]*string) error {
 }
 
 // start collecting all metrics and fetch the results
-func (config *Config) collectMetrics() []metric {
+func (config *Config) collectMetrics() []metricData {
 
 	// start := time.Now()
 	// log.WithFields(log.Fields{
 	// 	"timestamp": start,
 	// }).Info("Start scraping")
 
-	resC := make(chan metric)
+	resC := make(chan metricData)
 	go func(config *Config) {
 		var wg sync.WaitGroup
 
@@ -131,11 +131,11 @@ func (config *Config) collectMetrics() []metric {
 
 			go func(config *Config, m *metricInfo) {
 				defer wg.Done()
-				resC <- metric{
-					name:   m.Name,
-					help:   m.Help,
-					metric: m,
-					stats:  config.collectTenantsMetric(m),
+				resC <- metricData{
+					name:       m.Name,
+					help:       m.Help,
+					metricType: m.MetricType,
+					stats:      config.collectTenantsMetric(m),
 				}
 			}(config, m)
 		}
@@ -143,7 +143,7 @@ func (config *Config) collectMetrics() []metric {
 		close(resC)
 	}(config)
 
-	var ms []metric
+	var ms []metricData
 	for m := range resC {
 		ms = append(ms, m)
 	}
@@ -156,14 +156,14 @@ func (config *Config) collectMetrics() []metric {
 }
 
 // start collecting metric information for all tenants
-func (config *Config) collectTenantsMetric(m *metricInfo) []*metricData {
+func (config *Config) collectTenantsMetric(m *metricInfo) []*statData {
 	// start := time.Now()
 	// log.WithFields(log.Fields{
 	// 	"metric":    m.Name,
 	// 	"timestamp": start,
 	// }).Info("Start")
 
-	resC := make(chan []*metricData)
+	resC := make(chan []*statData)
 
 	go func(config *Config, m *metricInfo) {
 		var wg sync.WaitGroup
@@ -182,7 +182,7 @@ func (config *Config) collectTenantsMetric(m *metricInfo) []*metricData {
 		close(resC)
 	}(config, m)
 
-	var metricData []*metricData
+	var metricData []*statData
 	for v := range resC {
 		if v != nil {
 			metricData = append(metricData, v...)
@@ -197,7 +197,7 @@ func (config *Config) collectTenantsMetric(m *metricInfo) []*metricData {
 }
 
 // filter out not associated tenants
-func prepareMetricTenantData(m *metricInfo, t *tenantInfo) []*metricData {
+func prepareMetricTenantData(m *metricInfo, t *tenantInfo) []*statData {
 
 	// all values of metrics tag filter must be in tenants tags, otherwise the
 	// metric is not relevant for the tenant
@@ -239,7 +239,7 @@ func prepareMetricTenantData(m *metricInfo, t *tenantInfo) []*metricData {
 }
 
 // get metric data for one tenant
-func (t *tenantInfo) getMetricTenantData(sel string) ([]*metricData, error) {
+func (t *tenantInfo) getMetricTenantData(sel string) ([]*statData, error) {
 	var err error
 
 	var rows *sql.Rows
@@ -275,9 +275,9 @@ func (t *tenantInfo) getMetricTenantData(sel string) ([]*metricData, error) {
 		scanArgs[i] = &values[i]
 	}
 
-	var md []*metricData
+	var md []*statData
 	for rows.Next() {
-		data := metricData{
+		data := statData{
 			labels:      []string{"tenant", "usage"},
 			labelValues: []string{strings.ToLower(t.Name), strings.ToLower(t.usage)},
 		}
@@ -314,7 +314,7 @@ func (t *tenantInfo) getMetricTenantData(sel string) ([]*metricData, error) {
 	return md, nil
 }
 
-func newCollector(stats func() []metric) *collector {
+func newCollector(stats func() []metricData) *collector {
 	return &collector{
 		stats: stats,
 	}
@@ -339,7 +339,7 @@ func (c *collector) Collect(ch chan<- prometheus.Metric) {
 		for _, v := range mi.stats {
 			m := prometheus.MustNewConstMetric(
 				prometheus.NewDesc(mi.name, mi.help, v.labels, nil),
-				valueType[strings.ToLower(mi.metric.MetricType)],
+				valueType[strings.ToLower(mi.metricType)],
 				v.value,
 				v.labelValues...,
 			)
