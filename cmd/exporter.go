@@ -117,70 +117,56 @@ func (config *Config) web(flags map[string]*string) error {
 // start collecting all metrics and fetch the results
 func (config *Config) collectMetrics() []metricData {
 
-	// start := time.Now()
-	// log.WithFields(log.Fields{
-	// 	"timestamp": start,
-	// }).Info("Start scraping")
-
 	resC := make(chan metricData)
-	go func(config *Config) {
+	go func(metrics []*metricInfo, tenants []*tenantInfo) {
 		var wg sync.WaitGroup
 
-		for _, m := range config.Metrics {
+		for _, metric := range metrics {
 			wg.Add(1)
 
-			go func(config *Config, m *metricInfo) {
+			go func(metric *metricInfo, tenants []*tenantInfo) {
 				defer wg.Done()
 				resC <- metricData{
-					name:       m.Name,
-					help:       m.Help,
-					metricType: m.MetricType,
-					stats:      config.collectTenantsMetric(m),
+					name:       metric.Name,
+					help:       metric.Help,
+					metricType: metric.MetricType,
+					stats:      collectTenantsMetric(metric, tenants),
 				}
-			}(config, m)
+			}(metric, tenants)
 		}
 		wg.Wait()
 		close(resC)
-	}(config)
+	}(config.Metrics, config.Tenants)
 
-	var ms []metricData
-	for m := range resC {
-		ms = append(ms, m)
+	var metrics []metricData
+	for metric := range resC {
+		metrics = append(metrics, metric)
 	}
 
-	// log.WithFields(log.Fields{
-	// 	"timestamp": time.Since(start),
-	// }).Info("Finish scraping")
-	// log.Info("------------------------------------------------------------------------------")
-	return ms
+	return metrics
 }
 
 // start collecting metric information for all tenants
-func (config *Config) collectTenantsMetric(m *metricInfo) []*statData {
-	// start := time.Now()
-	// log.WithFields(log.Fields{
-	// 	"metric":    m.Name,
-	// 	"timestamp": start,
-	// }).Info("Start")
+func collectTenantsMetric(metric *metricInfo, tenants []*tenantInfo) []*statData {
 
 	resC := make(chan []*statData)
 
-	go func(config *Config, m *metricInfo) {
+	go func(metric *metricInfo, tenants []*tenantInfo) {
 		var wg sync.WaitGroup
 
-		for _, t := range config.Tenants {
+		for _, tenant := range tenants {
 			wg.Add(1)
 
-			go func(m *metricInfo, t *tenantInfo) {
+			go func(metric *metricInfo, tenant *tenantInfo) {
 				defer wg.Done()
 
-				resC <- prepareMetricTenantData(m, t)
-			}(m, t)
+				resC <- prepareMetricTenantData(metric, tenant)
+			}(metric, tenant)
 
 		}
 		wg.Wait()
 		close(resC)
-	}(config, m)
+	}(metric, tenants)
 
 	var metricData []*statData
 	for v := range resC {
@@ -188,49 +174,45 @@ func (config *Config) collectTenantsMetric(m *metricInfo) []*statData {
 			metricData = append(metricData, v...)
 		}
 	}
-	// log.WithFields(log.Fields{
-	// 	"metric":    m.Name,
-	// 	"timestamp": time.Since(start),
-	// }).Info("Finish")
 
 	return metricData
 }
 
 // filter out not associated tenants
-func prepareMetricTenantData(m *metricInfo, t *tenantInfo) []*statData {
+func prepareMetricTenantData(metric *metricInfo, tenant *tenantInfo) []*statData {
 
 	// all values of metrics tag filter must be in tenants tags, otherwise the
 	// metric is not relevant for the tenant
-	if !subSliceInSlice(m.TagFilter, t.Tags) {
+	if !subSliceInSlice(metric.TagFilter, tenant.Tags) {
 		return nil
 	}
 
-	sel := strings.TrimSpace(m.SQL)
+	sel := strings.TrimSpace(metric.SQL)
 	if !strings.EqualFold(sel[0:6], "select") {
 		log.WithFields(log.Fields{
-			"metric": m.Name,
-			"tenant": t.Name,
+			"metric": metric.Name,
+			"tenant": tenant.Name,
 		}).Error("Only selects are allowed")
 
 	}
 
 	// metrics schema filter must include a tenant schema
 	var schema string
-	if schema = firstValueInSlice(m.SchemaFilter, t.schemas); 0 == len(schema) {
+	if schema = firstValueInSlice(metric.SchemaFilter, tenant.schemas); 0 == len(schema) {
 		log.WithFields(log.Fields{
-			"metric": m.Name,
-			"tenant": t.Name,
+			"metric": metric.Name,
+			"tenant": tenant.Name,
 		}).Error("SchemaFilter value in toml file is missing")
 		return nil
 	}
 	sel = strings.ReplaceAll(sel, "<SCHEMA>", schema)
 
-	res, err := t.getMetricTenantData(sel)
+	res, err := tenant.getMetricTenantData(sel)
 
 	if err != nil {
 		log.WithFields(log.Fields{
-			"metric": m.Name,
-			"tenant": t.Name,
+			"metric": metric.Name,
+			"tenant": tenant.Name,
 			"error":  err,
 		}).Error("Can't get sql result for metric")
 		return nil
@@ -239,11 +221,11 @@ func prepareMetricTenantData(m *metricInfo, t *tenantInfo) []*statData {
 }
 
 // get metric data for one tenant
-func (t *tenantInfo) getMetricTenantData(sel string) ([]*statData, error) {
+func (tenant *tenantInfo) getMetricTenantData(sel string) ([]*statData, error) {
 	var err error
 
 	var rows *sql.Rows
-	rows, err = t.conn.Query(sel)
+	rows, err = tenant.conn.Query(sel)
 	if err != nil {
 		return nil, errors.Wrap(err, "GetSqlData - query")
 	}
@@ -279,7 +261,7 @@ func (t *tenantInfo) getMetricTenantData(sel string) ([]*statData, error) {
 	for rows.Next() {
 		data := statData{
 			labels:      []string{"tenant", "usage"},
-			labelValues: []string{strings.ToLower(t.Name), strings.ToLower(t.usage)},
+			labelValues: []string{strings.ToLower(tenant.Name), strings.ToLower(tenant.usage)},
 		}
 		err = rows.Scan(scanArgs...)
 		if err != nil {
