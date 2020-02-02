@@ -114,7 +114,7 @@ func (config *Config) web(flags map[string]*string) error {
 	return nil
 }
 
-// start all collecting metrics and fetch the results
+// start collecting all metrics and fetch the results
 func (config *Config) collectMetrics() []metric {
 
 	// start := time.Now()

@@ -27,7 +27,7 @@ $ grant select on schema <schema> to <user>;
 ```
 
 #### Configfile
-The next necessary piece is a [toml](https://github.com/toml-lang/toml) configuration file where the encrypted passwords, tenants and metrics are stored. The expected default name is hana_sql_exporter.toml and the expected default location of this file is the home directory of the user. The flag -config can be used to assign other locations or names.
+The next necessary piece is a [toml](https://github.com/toml-lang/toml) configuration file where the encrypted passwords, the tenant- and metric-information are stored. The expected default name is hana_sql_exporter.toml and the expected default location of this file is the home directory of the user. The flag -config can be used to assign other locations or names.
 
 The file contains a Tenants slice followed by a Metrics Slice:
 
@@ -77,7 +77,7 @@ Below is a description of the tenant and metric struct fields:
 | Field        | Type         | Description | Example |
 | ------------ | ------------ |------------ | ------- |
 | Name         | string       | Metric name | "hdb_info" |
-| Help         | string       | Metric help text | "Hana database version and uptime|
+| Help         | string       | Metric help text | "Hana database version and uptime"|
 | MetricType   | string       | Type of metric | "counter" or "gauge" |
 | TagFilter    | string array | The metric will only be executed, if all values correspond with the existing tenant tags | TagFilter ["abap", "erp"] needs at least tenant Tags ["abap", "erp"] otherwise the metric will not be used |
 | SchemaFilter | string array | The metric will only be used, if the tenant user has one of schemas in SchemaFilter assigned. The first matching schema will be replaced with the <SCHEMA> placeholder of the select.  | ["sapabap1", "sapewm"] |
@@ -106,12 +106,12 @@ $ ./hana_sql_exporter web -config ./hana_sql_exporter.toml
 ```
 
 #### Docker
-The Docker image can be downloaded from Docker Hub or build with the Dockerfile. Then it can be started as follows:
+The Docker image can be downloaded from Docker Hub or built with the Dockerfile. Then it can be started as follows:
 ```
 $ docker run -d --name=hana_exporter --restart=always -p 9658:9658 -v /home/<user>/hana_sql_exporter.toml:/app/hana_sql_exporter.toml \<image name\>
 ```
 #### Kubernetes
-An example config can be found in the examples folder. First of all create a sap namespace. Then apply the created configfile above as configmap and start the deployment:
+An example config can be found in the examples folder. First of all create a sap namespace. Then apply the created configfile as configmap and start the deployment:
 ```
 $ kubectl apply -f sap-namespace.yaml 
 $ kubectl create configmap hana-config -n sap --from-file ./hana_sql_exporter.toml -o yaml
@@ -127,7 +127,7 @@ $ kubectl scale --replicas=1 -n sap deployment hana-sql-exporter
 #### Prometheus configfile
 The necessary entries in the prometheus configfile can look something like the following:
 ```
-  - job_name: hana-exporter
+  - job_name: sap
         scrape_interval: 60s
         static_configs:
           - targets: ['172.45.111.105:9658']
