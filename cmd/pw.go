@@ -2,13 +2,16 @@ package cmd
 
 import (
 	"bytes"
+	"database/sql"
 	"fmt"
 	"os"
 	"strings"
 
 	"github.com/BurntSushi/toml"
+	"github.com/SAP/go-hdb/driver"
 	"github.com/golang/protobuf/proto"
 	"github.com/pkg/errors"
+	log "github.com/sirupsen/logrus"
 	"github.com/ulranh/hana_sql_exporter/internal"
 	"golang.org/x/crypto/ssh/terminal"
 )
@@ -38,7 +41,7 @@ func (config *Config) pw(flags map[string]*string) error {
 		}
 	}
 
-	err = newSecret(secret, flags["tenant"], pw)
+	err = config.newSecret(secret, flags["tenant"], pw)
 	if err != nil {
 		return errors.Wrap(err, " pw - newSecret")
 	}
@@ -68,16 +71,47 @@ func (config *Config) pw(flags map[string]*string) error {
 }
 
 // create encrypted secret map for tenant(s)
-func newSecret(secret internal.Secret, tenants *string, pw []byte) error {
+func (config *Config) newSecret(secret internal.Secret, tenants *string, pw []byte) error {
 
 	encPw, err := internal.PwEncrypt(pw, secret.Name["secretkey"])
 	if err != nil {
 		return errors.Wrap(err, "newSecret - PwEncrypt ")
 	}
 
-	// insert tenants given by flag -tenant and created pw in secret map
-	for _, tName := range strings.Split(*tenants, ",") {
-		secret.Name[strings.ToLower(tName)] = encPw
+	tMap := make(map[string]bool)
+	for _, tenant := range strings.Split(*tenants, ",") {
+		tMap[strings.ToLower(tenant)] = false
+	}
+	for _, tenant := range config.Tenants {
+		tName := strings.ToLower(tenant.Name)
+
+		// check if pw system exists in configfile system slice
+		if _, ok := tMap[tName]; !ok {
+			continue
+		}
+		tMap[tName] = true
+
+		// connection test
+		// connect to db tenant
+		connector := driver.NewBasicAuthConnector(tenant.ConnStr, tenant.User, string(pw))
+		connector.SetTimeout(60)
+		db := sql.OpenDB(connector)
+		defer db.Close()
+
+		if err := db.Ping(); err != nil {
+			continue
+		}
+
+		// add password to secret map
+		secret.Name[tName] = encPw
+	}
+
+	for k, v := range tMap {
+		if !v {
+			log.WithFields(log.Fields{
+				"tenant": k,
+			}).Error("Did not find tenant in configfile tenants slice.")
+		}
 	}
 
 	return nil
