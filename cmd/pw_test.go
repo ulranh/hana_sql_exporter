@@ -23,7 +23,7 @@ func Test_pw(t *testing.T) {
 	pw2 := "abcdef"
 
 	secret.Name["secretkey"] = secretkey
-	secret, err = newSecret(secret, &t1, []byte(pw1))
+	err = newSecret(secret, &t1, []byte(pw1))
 	internal.Ok(t, err)
 
 	decPw, err := internal.PwDecrypt(secret.Name["q01"], secretkey)
@@ -33,13 +33,13 @@ func Test_pw(t *testing.T) {
 	internal.Ok(t, err)
 	internal.Equals(t, decPw, pw1)
 
-	secret, err = newSecret(secret, &t2, []byte(pw1))
+	err = newSecret(secret, &t2, []byte(pw1))
 	internal.Ok(t, err)
 	decPw, err = internal.PwDecrypt(secret.Name["t01"], secretkey)
 	internal.Ok(t, err)
 	internal.Equals(t, decPw, pw1)
 
-	secret, err = newSecret(secret, &t3, []byte(pw2))
+	err = newSecret(secret, &t3, []byte(pw2))
 	internal.Ok(t, err)
 	decPw, err = internal.PwDecrypt(secret.Name["p01"], secretkey)
 	internal.Ok(t, err)

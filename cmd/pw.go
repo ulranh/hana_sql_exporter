@@ -38,13 +38,13 @@ func (config *Config) pw(flags map[string]*string) error {
 		}
 	}
 
-	newSecret, err := newSecret(secret, flags["tenant"], pw)
+	err = newSecret(secret, flags["tenant"], pw)
 	if err != nil {
 		return errors.Wrap(err, " pw - newSecret")
 	}
 
 	// marshal the secret map
-	config.Secret, err = proto.Marshal(&newSecret)
+	config.Secret, err = proto.Marshal(&secret)
 	if err != nil {
 		return errors.Wrap(err, " ImportTenants - Marshal")
 	}
@@ -68,11 +68,11 @@ func (config *Config) pw(flags map[string]*string) error {
 }
 
 // create encrypted secret map for tenant(s)
-func newSecret(secret internal.Secret, tenants *string, pw []byte) (internal.Secret, error) {
+func newSecret(secret internal.Secret, tenants *string, pw []byte) error {
 
 	encPw, err := internal.PwEncrypt(pw, secret.Name["secretkey"])
 	if err != nil {
-		return internal.Secret{}, errors.Wrap(err, "newSecret - PwEncrypt ")
+		return errors.Wrap(err, "newSecret - PwEncrypt ")
 	}
 
 	// insert tenants given by flag -tenant and created pw in secret map
@@ -80,5 +80,5 @@ func newSecret(secret internal.Secret, tenants *string, pw []byte) (internal.Sec
 		secret.Name[strings.ToLower(tName)] = encPw
 	}
 
-	return secret, nil
+	return nil
 }

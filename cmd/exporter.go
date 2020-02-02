@@ -55,7 +55,7 @@ func (config *Config) web(flags map[string]*string) error {
 			log.WithFields(log.Fields{
 				"tenant": config.Tenants[i].Name,
 				"error":  err,
-			}).Error("Can't find or decrypt password for tenant - tenant removed")
+			}).Error("Can't find or decrypt password for tenant - tenant removed!")
 
 			// remove tenant from slice
 			config.Tenants = append(config.Tenants[:i], config.Tenants[i+1:]...)
@@ -74,7 +74,7 @@ func (config *Config) web(flags map[string]*string) error {
 			log.WithFields(log.Fields{
 				"tenant": config.Tenants[i].Name,
 				"error":  err,
-			}).Error("Problems with select of remaining tenant info - tenant removed.")
+			}).Error("Problems with select of remaining tenant info - tenant removed!")
 
 			// remove tenant from slice
 			config.Tenants = append(config.Tenants[:i], config.Tenants[i+1:]...)
