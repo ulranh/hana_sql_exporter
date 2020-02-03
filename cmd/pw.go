@@ -92,7 +92,6 @@ func (config *Config) newSecret(secret internal.Secret, tenants *string, pw []by
 		tMap[tName] = true
 
 		// connection test
-		// connect to db tenant
 		connector := driver.NewBasicAuthConnector(tenant.ConnStr, tenant.User, string(pw))
 		connector.SetTimeout(60)
 		db := sql.OpenDB(connector)
