@@ -99,6 +99,9 @@ func (config *Config) newSecret(secret internal.Secret, tenants *string, pw []by
 		defer db.Close()
 
 		if err := db.Ping(); err != nil {
+			log.WithFields(log.Fields{
+				"tenant": tenant.Name,
+			}).Error("Can't connect to tenant with given parameters.")
 			continue
 		}
 
