@@ -27,7 +27,7 @@ $ grant select on schema <schema> to <user>;
 ```
 
 #### Configfile
-The next necessary piece is a [toml](https://github.com/toml-lang/toml) configuration file where the encrypted passwords, the tenant- and metric-information are stored. The expected default name is hana_sql_exporter.toml and the expected default location of this file is the home directory of the user. The flag -config can be used to assign other locations or names.
+The next necessary piece is a [toml](https://github.com/toml-lang/toml) configuration file where the encrypted passwords, the tenant- and metric-information are stored. The expected default name is hana_sql_exporter.toml and the expected default location of this file is the users home directory. The flag -config can be used to assign other locations or names.
 
 The file contains a Tenants slice followed by a Metrics Slice:
 
