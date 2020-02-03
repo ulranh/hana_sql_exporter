@@ -81,7 +81,7 @@ Below is a description of the tenant and metric struct fields:
 | MetricType   | string       | Type of metric | "counter" or "gauge" |
 | TagFilter    | string array | The metric will only be executed, if all values correspond with the existing tenant tags | TagFilter ["abap", "erp"] needs at least tenant Tags ["abap", "erp"] otherwise the metric will not be used |
 | SchemaFilter | string array | The metric will only be used, if the tenant user has one of schemas in SchemaFilter assigned. The first matching schema will be replaced with the <SCHEMA> placeholder of the select.  | ["sapabap1", "sapewm"] |
-| SQL          | string       | The select is responsible for the data retrieval. Conventionally the first column must represent the value of the metric. The folowing columns are used as labels and must be string values. | "select days_between(start_time, current_timestamp) as uptime, version from \<SCHEMA\>.m_database" (SCHEMA uppercase) |
+| SQL          | string       | The select is responsible for the data retrieval. Conventionally the first column must represent the value of the metric. The following columns are used as labels and must be string values. | "select days_between(start_time, current_timestamp) as uptime, version from \<SCHEMA\>.m_database" (SCHEMA uppercase) |
 
 #### Database passwords
 
