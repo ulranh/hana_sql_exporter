@@ -81,6 +81,10 @@ var paramMap = map[string]*struct {
 		value: "",
 		usage: "Path + name of toml config file",
 	},
+	"timeout": {
+		value: "5",
+		usage: "timeout of the hana connector in seconds",
+	},
 }
 
 // map of allowed commands
@@ -94,7 +98,7 @@ var commandMap = map[string]struct {
 		// help:   pwHelp,
 	},
 	"web": {
-		params: []string{"config", "port"},
+		params: []string{"config", "port", "timeout"},
 		// help:   wHelp,
 	},
 }

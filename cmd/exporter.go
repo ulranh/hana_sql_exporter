@@ -64,7 +64,11 @@ func (config *Config) web(flags map[string]*string) error {
 
 		// connect to db tenant
 		connector := driver.NewBasicAuthConnector(config.Tenants[i].ConnStr, config.Tenants[i].User, pw)
-		connector.SetTimeout(60)
+		timeout, err := strconv.Atoi(*flags["timeout"])
+		if err != nil {
+			return errors.Wrap(err, " timeout flag has wrong type")
+		}
+		connector.SetTimeout(timeout)
 		config.Tenants[i].conn = sql.OpenDB(connector)
 		defer config.Tenants[i].conn.Close()
 

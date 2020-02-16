@@ -93,7 +93,7 @@ func (config *Config) newSecret(secret internal.Secret, tenants *string, pw []by
 
 		// connection test
 		connector := driver.NewBasicAuthConnector(tenant.ConnStr, tenant.User, string(pw))
-		connector.SetTimeout(60)
+		connector.SetTimeout(5)
 		db := sql.OpenDB(connector)
 		defer db.Close()
 
