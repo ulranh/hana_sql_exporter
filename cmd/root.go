@@ -82,7 +82,7 @@ var paramMap = map[string]*struct {
 		usage: "Path + name of toml config file",
 	},
 	"timeout": {
-		value: "5",
+		value: "3",
 		usage: "timeout of the hana connector in seconds",
 	},
 }
