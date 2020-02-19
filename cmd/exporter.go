@@ -228,6 +228,10 @@ func prepareMetricTenantData(metric *metricInfo, tenant *tenantInfo) []*statData
 func (tenant *tenantInfo) getMetricTenantData(sel string) ([]*statData, error) {
 	var err error
 
+	if err = tenant.conn.Ping(); err != nil {
+		return nil, errors.Wrap(err, "Sql ping - no connect")
+	}
+
 	var rows *sql.Rows
 	rows, err = tenant.conn.Query(sel)
 	if err != nil {
