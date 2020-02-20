@@ -159,8 +159,18 @@ func collectTenantsMetric(metric *metricInfo, tenants []*tenantInfo) []*statData
 		var wg sync.WaitGroup
 
 		for _, tenant := range tenants {
-			wg.Add(1)
 
+			// check if tenant is accessible
+			if err := tenant.conn.Ping(); err != nil {
+				log.WithFields(log.Fields{
+					"metric": metric.Name,
+					"tenant": tenant.Name,
+					"error":  err,
+				}).Error("can't connect to tenant")
+				continue
+			}
+
+			wg.Add(1)
 			go func(metric *metricInfo, tenant *tenantInfo) {
 				defer wg.Done()
 
@@ -197,7 +207,7 @@ func prepareMetricTenantData(metric *metricInfo, tenant *tenantInfo) []*statData
 			"metric": metric.Name,
 			"tenant": tenant.Name,
 		}).Error("Only selects are allowed")
-
+		return nil
 	}
 
 	// metrics schema filter must include a tenant schema
@@ -212,7 +222,6 @@ func prepareMetricTenantData(metric *metricInfo, tenant *tenantInfo) []*statData
 	sel = strings.ReplaceAll(sel, "<SCHEMA>", schema)
 
 	res, err := tenant.getMetricTenantData(sel)
-
 	if err != nil {
 		log.WithFields(log.Fields{
 			"metric": metric.Name,
@@ -227,10 +236,6 @@ func prepareMetricTenantData(metric *metricInfo, tenant *tenantInfo) []*statData
 // get metric data for one tenant
 func (tenant *tenantInfo) getMetricTenantData(sel string) ([]*statData, error) {
 	var err error
-
-	if err = tenant.conn.Ping(); err != nil {
-		return nil, errors.Wrap(err, "Sql ping - no connect")
-	}
 
 	var rows *sql.Rows
 	rows, err = tenant.conn.Query(sel)
