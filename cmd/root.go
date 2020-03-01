@@ -23,6 +23,7 @@ type tenantInfo struct {
 	schemas []string
 	conn    *sql.DB
 }
+type tenantsInfo []tenantInfo
 
 // metric info
 type metricInfo struct {
@@ -37,7 +38,7 @@ type metricInfo struct {
 // Config struct with config file infos
 type Config struct {
 	Secret  []byte
-	Tenants []*tenantInfo
+	Tenants tenantsInfo
 	Metrics []*metricInfo
 }
 

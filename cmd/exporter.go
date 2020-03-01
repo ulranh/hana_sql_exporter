@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"database/sql"
+	"fmt"
 	"net/http"
 	"strconv"
 	"strings"
@@ -62,6 +63,7 @@ func (config *Config) web(flags map[string]*string) error {
 			continue
 		}
 
+		// !!!!!!!!!!!!!!!!!!!!!
 		// connect to db tenant
 		connector := driver.NewBasicAuthConnector(config.Tenants[i].ConnStr, config.Tenants[i].User, pw)
 		timeout, err := strconv.Atoi(*flags["timeout"])
@@ -70,6 +72,8 @@ func (config *Config) web(flags map[string]*string) error {
 		}
 		connector.SetTimeout(timeout)
 		config.Tenants[i].conn = sql.OpenDB(connector)
+		// config.Tenants[i].conn = connect(connstr,usr,pw)
+		// !!!!!!!!!!!!!!!!!!!
 		defer config.Tenants[i].conn.Close()
 
 		// get tenant usage and hana-user schema information
@@ -121,79 +125,72 @@ func (config *Config) web(flags map[string]*string) error {
 // start collecting all metrics and fetch the results
 func (config *Config) collectMetrics() []metricData {
 
-	resC := make(chan metricData)
-	go func(metrics []*metricInfo, tenants []*tenantInfo) {
-		var wg sync.WaitGroup
+	var wg sync.WaitGroup
 
-		for _, metric := range metrics {
-			wg.Add(1)
+	metricsC := make(chan metricData)
 
-			go func(metric *metricInfo, tenants []*tenantInfo) {
-				defer wg.Done()
-				resC <- metricData{
-					name:       metric.Name,
-					help:       metric.Help,
-					metricType: metric.MetricType,
-					stats:      collectTenantsMetric(metric, tenants),
-				}
-			}(metric, tenants)
-		}
-		wg.Wait()
-		close(resC)
-	}(config.Metrics, config.Tenants)
+	for _, metric := range config.Metrics {
 
-	var metrics []metricData
-	for metric := range resC {
-		metrics = append(metrics, metric)
+		wg.Add(1)
+		go func(metric *metricInfo, tenants tenantsInfo) {
+
+			defer wg.Done()
+			metricsC <- metricData{
+				name:       metric.Name,
+				help:       metric.Help,
+				metricType: metric.MetricType,
+				stats:      tenants.collectMetric(metric),
+			}
+		}(metric, config.Tenants)
 	}
 
-	return metrics
+	go func() {
+		wg.Wait()
+		close(metricsC)
+	}()
+
+	var metricsData []metricData
+	for metric := range metricsC {
+		metricsData = append(metricsData, metric)
+	}
+
+	return metricsData
 }
 
 // start collecting metric information for all tenants
-func collectTenantsMetric(metric *metricInfo, tenants []*tenantInfo) []*statData {
+func (tenants tenantsInfo) collectMetric(metric *metricInfo) []*statData {
 
-	resC := make(chan []*statData)
+	metricC := make(chan []*statData)
+	var wg sync.WaitGroup
 
-	go func(metric *metricInfo, tenants []*tenantInfo) {
-		var wg sync.WaitGroup
+	for _, tenant := range tenants {
 
-		for _, tenant := range tenants {
+		wg.Add(1)
+		go func(metric *metricInfo, tenant tenantInfo) {
 
-			// check if tenant is accessible
-			if err := tenant.conn.Ping(); err != nil {
-				log.WithFields(log.Fields{
-					"metric": metric.Name,
-					"tenant": tenant.Name,
-					"error":  err,
-				}).Error("can't connect to tenant")
-				continue
-			}
+			defer wg.Done()
+			metricC <- tenant.prepareMetricData(metric)
+		}(metric, tenant)
+	}
 
-			wg.Add(1)
-			go func(metric *metricInfo, tenant *tenantInfo) {
-				defer wg.Done()
-
-				resC <- prepareMetricTenantData(metric, tenant)
-			}(metric, tenant)
-
-		}
+	go func() {
 		wg.Wait()
-		close(resC)
-	}(metric, tenants)
+		close(metricC)
+	}()
 
-	var metricData []*statData
-	for v := range resC {
+	var sData []*statData
+	for v := range metricC {
 		if v != nil {
-			metricData = append(metricData, v...)
+			fmt.Println("data: ", v)
+			sData = append(sData, v...)
 		}
 	}
 
-	return metricData
+	return sData
 }
 
 // filter out not associated tenants
-func prepareMetricTenantData(metric *metricInfo, tenant *tenantInfo) []*statData {
+func (tenant *tenantInfo) prepareMetricData(metric *metricInfo) []*statData {
 
 	// all values of metrics tag filter must be in tenants tags, otherwise the
 	// metric is not relevant for the tenant
@@ -221,7 +218,7 @@ func prepareMetricTenantData(metric *metricInfo, tenant *tenantInfo) []*statData
 	}
 	sel = strings.ReplaceAll(sel, "<SCHEMA>", schema)
 
-	res, err := tenant.getMetricTenantData(sel)
+	res, err := tenant.getMetricData(sel)
 	if err != nil {
 		log.WithFields(log.Fields{
 			"metric": metric.Name,
@@ -234,7 +231,7 @@ func prepareMetricTenantData(metric *metricInfo, tenant *tenantInfo) []*statData
 }
 
 // get metric data for one tenant
-func (tenant *tenantInfo) getMetricTenantData(sel string) ([]*statData, error) {
+func (tenant *tenantInfo) getMetricData(sel string) ([]*statData, error) {
 	var err error
 
 	var rows *sql.Rows
