@@ -23,7 +23,7 @@ type tenantInfo struct {
 	schemas []string
 	conn    *sql.DB
 }
-type tenantsInfo []tenantInfo
+type tenantsInfo []*tenantInfo
 
 // metric info
 type metricInfo struct {

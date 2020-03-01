@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"database/sql"
-	"fmt"
 	"net/http"
 	"strconv"
 	"strings"
@@ -166,7 +165,7 @@ func (tenants tenantsInfo) collectMetric(metric *metricInfo) []*statData {
 	for _, tenant := range tenants {
 
 		wg.Add(1)
-		go func(metric *metricInfo, tenant tenantInfo) {
+		go func(metric *metricInfo, tenant *tenantInfo) {
 
 			defer wg.Done()
 			metricC <- tenant.prepareMetricData(metric)
@@ -181,7 +180,6 @@ func (tenants tenantsInfo) collectMetric(metric *metricInfo) []*statData {
 	var sData []*statData
 	for v := range metricC {
 		if v != nil {
-			fmt.Println("data: ", v)
 			sData = append(sData, v...)
 		}
 	}
