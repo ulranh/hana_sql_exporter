@@ -2,13 +2,11 @@ package cmd
 
 import (
 	"bytes"
-	"database/sql"
 	"fmt"
 	"os"
 	"strings"
 
 	"github.com/BurntSushi/toml"
-	"github.com/SAP/go-hdb/driver"
 	"github.com/golang/protobuf/proto"
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
@@ -92,9 +90,7 @@ func (config *Config) newSecret(secret internal.Secret, tenants *string, pw []by
 		tMap[tName] = true
 
 		// connection test
-		connector := driver.NewBasicAuthConnector(tenant.ConnStr, tenant.User, string(pw))
-		connector.SetTimeout(5)
-		db := sql.OpenDB(connector)
+		db := dbConnect(tenant.ConnStr, tenant.User, string(pw))
 		defer db.Close()
 
 		if err := db.Ping(); err != nil {

@@ -43,13 +43,7 @@ type statData struct {
 func (config *Config) web(flags map[string]*string) error {
 
 	var err error
-
-	config.timeout, err = strconv.ParseUint(*flags["timeout"], 10, 0)
-	if err != nil {
-		return errors.Wrap(err, " timeout flag has wrong type")
-	}
-
-	config.Tenants, err = config.prepareTenants()
+	config.Tenants, err = config.prepareTenants(*flags["timeout"])
 	if err != nil {
 		return errors.Wrap(err, " preparation of tenants not possible")
 	}
@@ -95,7 +89,7 @@ func (config *Config) collectMetrics() []metricData {
 	var wg sync.WaitGroup
 
 	// tenants that do not respond will be excluded for this scrape
-	// tenants := config.Tenants.checkConnect()
+	tenants := config.Tenants.checkConnect()
 
 	metricsC := make(chan metricData)
 	for _, metric := range config.Metrics {
@@ -108,9 +102,9 @@ func (config *Config) collectMetrics() []metricData {
 				name:       metric.Name,
 				help:       metric.Help,
 				metricType: metric.MetricType,
-				stats:      tenants.collectMetric(metric, config.timeout),
+				stats:      tenants.collectMetric(metric),
 			}
-		}(metric, config.Tenants)
+		}(metric, tenants)
 	}
 
 	go func() {
@@ -126,8 +120,43 @@ func (config *Config) collectMetrics() []metricData {
 	return metricsData
 }
 
+// check, if connect to tenant is possible. otherwise remove tenant from tenants
+func (tenants tenantsInfo) checkConnect() tenantsInfo {
+
+	var wg sync.WaitGroup
+	okC := make(chan int)
+
+	for i := 0; i < len(tenants); i++ {
+		wg.Add(1)
+		go func(i int, t *tenantInfo) {
+			defer wg.Done()
+
+			err := t.conn.Ping()
+			if err == nil {
+				okC <- i
+			} else {
+				okC <- -1
+			}
+		}(i, tenants[i])
+	}
+
+	go func() {
+		wg.Wait()
+		close(okC)
+	}()
+
+	var tenantsOk tenantsInfo
+	for i := range okC {
+		if i >= 0 {
+			tenantsOk = append(tenantsOk, tenants[i])
+		}
+	}
+
+	return tenantsOk
+}
+
 // start collecting metric information for all tenants
-func (tenants tenantsInfo) collectMetric(metric *metricInfo, timeout uint64) []statData {
+func (tenants tenantsInfo) collectMetric(metric *metricInfo) []statData {
 
 	metricC := make(chan []statData)
 	var wg sync.WaitGroup
@@ -148,40 +177,12 @@ func (tenants tenantsInfo) collectMetric(metric *metricInfo, timeout uint64) []s
 	}()
 
 	var sData []statData
-	// afterCh := time.After(time.Duration(timeout) * time.Second)
-stopReading:
-	for stop := time.After(time.Duration(timeout) * time.Second); ; {
-		select {
-		case mc, ok := <-metricC:
-			if mc != nil {
-				sData = append(sData, mc...)
-			}
-			if !ok {
-				break stopReading
-			}
-		case <-stop:
-			log.Println("Time's up!")
-			break stopReading
+	for v := range metricC {
+		if v != nil {
+			sData = append(sData, v...)
 		}
 	}
-	// readChan:
-	// 	for {
-	// 		select {
-	// 		case mc, ok := <-metricC:
-	// 			if mc != nil {
-	// 				sData = append(sData, mc...)
-	// 			}
-	// 			if !ok {
-	// 				break readChan
-	// 			}
-	// 		case <-time.After(time.Duration(timeout) * time.Second):
-	// 			// case <-afterCh:
-	// 			log.Println("Time's up!")
-	// 			break readChan
-	// 		}
-	// 	}
 
-	log.Println("sData: ", len(sData))
 	return sData
 }
 
@@ -336,45 +337,8 @@ func (c *collector) Collect(ch chan<- prometheus.Metric) {
 	}
 }
 
-// helper functions
-
-// // check, if connect to tenant is possible. otherwise remove tenant from tenants
-// func (tenants tenantsInfo) checkConnect() tenantsInfo {
-
-// 	var wg sync.WaitGroup
-// 	okC := make(chan int)
-
-// 	for i := 0; i < len(tenants); i++ {
-// 		wg.Add(1)
-// 		go func(i int, t *tenantInfo) {
-// 			defer wg.Done()
-
-// 			err := t.conn.Ping()
-// 			if err == nil {
-// 				okC <- i
-// 			} else {
-// 				okC <- -1
-// 			}
-// 		}(i, tenants[i])
-// 	}
-
-// 	go func() {
-// 		wg.Wait()
-// 		close(okC)
-// 	}()
-
-// 	var tenantsOk tenantsInfo
-// 	for i := range okC {
-// 		if i >= 0 {
-// 			tenantsOk = append(tenantsOk, tenants[i])
-// 		}
-// 	}
-
-// 	return tenantsOk
-// }
-
 // add missing information to tenant struct
-func (config *Config) prepareTenants() (tenantsInfo, error) {
+func (config *Config) prepareTenants(timeoutS string) (tenantsInfo, error) {
 
 	var tenantsOk tenantsInfo
 
@@ -397,7 +361,11 @@ func (config *Config) prepareTenants() (tenantsInfo, error) {
 		}
 
 		// connect to db tenant
-		config.Tenants[i].conn = dbConnect(config.Tenants[i].ConnStr, config.Tenants[i].User, pw)
+		timeout, err := strconv.Atoi(timeoutS)
+		if err != nil {
+			return nil, errors.Wrap(err, " timeout flag has wrong type")
+		}
+		config.Tenants[i].conn = dbConnect(config.Tenants[i].ConnStr, config.Tenants[i].User, pw, timeout)
 		err = config.Tenants[i].conn.Ping()
 		if err != nil {
 			log.WithFields(log.Fields{
@@ -438,13 +406,13 @@ func getPW(secret internal.Secret, name string) (string, error) {
 	return pw, nil
 }
 
-func dbConnect(connStr, user, pw string) *sql.DB {
+func dbConnect(connStr, user, pw string, timeout int) *sql.DB {
 
 	connector, err := goHdbDriver.NewDSNConnector("hdb://" + user + ":" + pw + "@" + connStr)
 	if err != nil {
 		log.Fatal(err)
 	}
-	// connector.SetTimeout(timeout)
+	connector.SetTimeout(timeout)
 	return sql.OpenDB(connector)
 }
 

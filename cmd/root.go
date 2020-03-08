@@ -40,6 +40,7 @@ type Config struct {
 	Secret  []byte
 	Tenants tenantsInfo
 	Metrics []*metricInfo
+	timeout uint64
 }
 
 // help text for command usage
@@ -83,7 +84,7 @@ var paramMap = map[string]*struct {
 		usage: "Path + name of toml config file",
 	},
 	"timeout": {
-		value: "3",
+		value: "2",
 		usage: "timeout of the hana connector in seconds",
 	},
 }
@@ -92,15 +93,12 @@ var paramMap = map[string]*struct {
 var commandMap = map[string]struct {
 	defaultParams map[string]string
 	params        []string
-	// help          string
 }{
 	"pw": {
 		params: []string{"config", "tenant"},
-		// help:   pwHelp,
 	},
 	"web": {
 		params: []string{"config", "port", "timeout"},
-		// help:   wHelp,
 	},
 }
 
