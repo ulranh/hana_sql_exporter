@@ -44,11 +44,6 @@ func (config *Config) web(flags map[string]*string) error {
 
 	var err error
 
-	config.timeout, err = strconv.ParseUint(*flags["timeout"], 10, 0)
-	if err != nil {
-		return errors.Wrap(err, " timeout flag has wrong type")
-	}
-
 	config.Tenants, err = config.prepareTenants()
 	if err != nil {
 		return errors.Wrap(err, " preparation of tenants not possible")

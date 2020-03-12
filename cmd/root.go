@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path"
+	"strconv"
 	"strings"
 
 	"github.com/BurntSushi/toml"
@@ -84,7 +85,7 @@ var paramMap = map[string]*struct {
 		usage: "Path + name of toml config file",
 	},
 	"timeout": {
-		value: "2",
+		value: "10",
 		usage: "timeout of the hana connector in seconds",
 	},
 }
@@ -122,6 +123,12 @@ func Root() {
 	if err = config.parseConfigInfo(command); err != nil {
 		exit(fmt.Sprint("Problem with configfile content: ", err))
 	}
+
+	config.timeout, err = strconv.ParseUint(*flags["timeout"], 10, 0)
+	if err != nil {
+		exit(fmt.Sprint(" timeout flag has wrong type", err))
+	}
+
 	// run cmd
 	var cmdFunc = map[string]func(map[string]*string) error{
 		"pw":  config.pw,
