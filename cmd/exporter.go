@@ -94,10 +94,7 @@ func (config *Config) collectMetrics() []metricData {
 
 	var wg sync.WaitGroup
 
-	// tenants that do not respond will be excluded for this scrape
-	// tenants := config.Tenants.checkConnect()
-
-	metricsC := make(chan metricData)
+	metricsC := make(chan metricData, len(config.Metrics))
 	for _, metric := range config.Metrics {
 
 		wg.Add(1)
@@ -129,59 +126,35 @@ func (config *Config) collectMetrics() []metricData {
 // start collecting metric information for all tenants
 func (tenants tenantsInfo) collectMetric(metric *metricInfo, timeout uint64) []statData {
 
-	metricC := make(chan []statData)
-	var wg sync.WaitGroup
+	metricC := make(chan []statData, len(tenants))
 
 	for _, tenant := range tenants {
 
-		wg.Add(1)
 		go func(metric *metricInfo, tenant *tenantInfo) {
 
-			defer wg.Done()
 			metricC <- tenant.prepareMetricData(metric)
 		}(metric, tenant)
 	}
 
-	go func() {
-		wg.Wait()
-		close(metricC)
-	}()
-
+	i := 0
 	var sData []statData
-	// afterCh := time.After(time.Duration(timeout) * time.Second)
+	timeAfter := time.After(time.Duration(timeout) * time.Second)
+
 stopReading:
-	for stop := time.After(time.Duration(timeout) * time.Second); ; {
+	for {
 		select {
-		case mc, ok := <-metricC:
+		case mc := <-metricC:
 			if mc != nil {
 				sData = append(sData, mc...)
 			}
-			if !ok {
+			i += 1
+			if len(tenants) == i {
 				break stopReading
 			}
-		case <-stop:
-			log.Println("Time's up!")
+		case <-timeAfter:
 			break stopReading
 		}
 	}
-	// readChan:
-	// 	for {
-	// 		select {
-	// 		case mc, ok := <-metricC:
-	// 			if mc != nil {
-	// 				sData = append(sData, mc...)
-	// 			}
-	// 			if !ok {
-	// 				break readChan
-	// 			}
-	// 		case <-time.After(time.Duration(timeout) * time.Second):
-	// 			// case <-afterCh:
-	// 			log.Println("Time's up!")
-	// 			break readChan
-	// 		}
-	// 	}
-
-	log.Println("sData: ", len(sData))
 	return sData
 }
 
@@ -246,7 +219,7 @@ func (tenant *tenantInfo) getMetricData(sel string) ([]statData, error) {
 		return nil, errors.Wrap(err, "GetSqlData - no columns")
 	}
 
-	// first column must not be string -> do better
+	// first column must not be string
 	colt, err := rows.ColumnTypes()
 	if err != nil {
 		return nil, errors.Wrap(err, "GetSqlData - columnTypes")
@@ -338,41 +311,6 @@ func (c *collector) Collect(ch chan<- prometheus.Metric) {
 
 // helper functions
 
-// // check, if connect to tenant is possible. otherwise remove tenant from tenants
-// func (tenants tenantsInfo) checkConnect() tenantsInfo {
-
-// 	var wg sync.WaitGroup
-// 	okC := make(chan int)
-
-// 	for i := 0; i < len(tenants); i++ {
-// 		wg.Add(1)
-// 		go func(i int, t *tenantInfo) {
-// 			defer wg.Done()
-
-// 			err := t.conn.Ping()
-// 			if err == nil {
-// 				okC <- i
-// 			} else {
-// 				okC <- -1
-// 			}
-// 		}(i, tenants[i])
-// 	}
-
-// 	go func() {
-// 		wg.Wait()
-// 		close(okC)
-// 	}()
-
-// 	var tenantsOk tenantsInfo
-// 	for i := range okC {
-// 		if i >= 0 {
-// 			tenantsOk = append(tenantsOk, tenants[i])
-// 		}
-// 	}
-
-// 	return tenantsOk
-// }
-
 // add missing information to tenant struct
 func (config *Config) prepareTenants() (tenantsInfo, error) {
 
@@ -423,6 +361,7 @@ func (config *Config) prepareTenants() (tenantsInfo, error) {
 
 }
 
+// decrypt password
 func getPW(secret internal.Secret, name string) (string, error) {
 
 	// get encrypted tenant pw
@@ -438,6 +377,7 @@ func getPW(secret internal.Secret, name string) (string, error) {
 	return pw, nil
 }
 
+// connect to database
 func dbConnect(connStr, user, pw string) *sql.DB {
 
 	connector, err := goHdbDriver.NewDSNConnector("hdb://" + user + ":" + pw + "@" + connStr)
@@ -482,6 +422,7 @@ func (t *tenantInfo) collectRemainingTenantInfos() error {
 	return nil
 }
 
+// true, if slice contains string
 func containsString(str string, slice []string) bool {
 	for _, s := range slice {
 		if strings.EqualFold(s, str) {
@@ -491,7 +432,7 @@ func containsString(str string, slice []string) bool {
 	return false
 }
 
-// true if every item in sublice exists in slice or sublice is empty
+// true, if every item in sublice exists in slice or sublice is empty
 func subSliceInSlice(subSlice []string, slice []string) bool {
 	for _, vs := range subSlice {
 		for _, v := range slice {
