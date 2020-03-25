@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"database/sql"
+	"fmt"
 	"net/http"
 	"strconv"
 	"strings"
@@ -43,6 +44,11 @@ type statData struct {
 func (config *Config) web(flags map[string]*string) error {
 
 	var err error
+
+	config.timeout, err = strconv.ParseUint(*flags["timeout"], 10, 0)
+	if err != nil {
+		exit(fmt.Sprint(" timeout flag has wrong type", err))
+	}
 
 	config.Tenants, err = config.prepareTenants()
 	if err != nil {

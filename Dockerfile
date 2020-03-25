@@ -19,4 +19,4 @@ FROM scratch
 COPY --from=builder /app/hana_sql_exporter /app/
 
 EXPOSE 9658
-ENTRYPOINT ["/app/hana_sql_exporter","web","-config","/app/hana_sql_exporter.toml"]
+ENTRYPOINT ["/app/hana_sql_exporter","web","-config","/app/hana_sql_exporter.toml","-timeout","3"]
