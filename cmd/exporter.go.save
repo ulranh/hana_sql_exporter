@@ -314,9 +314,9 @@ func (c *collector) Collect(ch chan<- prometheus.Metric) {
 // helper functions
 
 // add missing information to tenant struct
-func (config *Config) prepareTenants() ([]tenantInfo, error) {
+func (config *Config) prepareTenants() (tenantsInfo, error) {
 
-	var tenantsOk []tenantInfo
+	var tenantsOk tenantsInfo
 
 	// unmarshal secret byte array
 	var secret internal.Secret
