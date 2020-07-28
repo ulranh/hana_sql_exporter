@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"database/sql"
-	"fmt"
 	"net/http"
 	"strconv"
 	"strings"
@@ -41,15 +40,7 @@ func (config *Config) web(flags map[string]*string) error {
 
 	var err error
 
-	config.timeout, err = strconv.ParseUint(*flags["timeout"], 10, 0)
-	if err != nil {
-		exit(fmt.Sprint(" timeout flag has wrong type", err))
-	}
-
-	config.Tenants, err = config.prepareTenants()
-	if err != nil {
-		return errors.Wrap(err, " preparation of tenants not possible")
-	}
+	// tenant connections must be closed at the end
 	for _, t := range config.Tenants {
 		defer t.conn.Close()
 	}
@@ -114,7 +105,6 @@ func (config *Config) collectMetrics() []metricData {
 }
 
 // start collecting metric information for all tenants
-// func (config *Config) collectMetric(mPos intmetric *metricInfo, timeout uint64) []statData {
 func (config *Config) collectMetric(mPos int) []statData {
 
 	metricC := make(chan []statData, len(config.Tenants))
@@ -149,7 +139,6 @@ stopReading:
 }
 
 // filter out not associated tenants
-// func (tenant *tenantInfo) prepareMetricData(metric *metricInfo) []statData {
 func (config *Config) prepareMetricData(mPos, tPos int) []statData {
 
 	// all values of metrics tag filter must be in tenants tags, otherwise the

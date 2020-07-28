@@ -11,16 +11,6 @@ import (
 	"github.com/ulranh/hana_sql_exporter/internal"
 )
 
-func (config *Config) adapSchemaFilter() {
-
-	// add sys schema to SchemaFilter if it does not exists
-	for _, m := range config.Metrics {
-		if !containsString("sys", m.SchemaFilter) {
-			m.SchemaFilter = append(m.SchemaFilter, "sys")
-		}
-	}
-}
-
 // add missing information to tenant struct
 func (config *Config) prepareTenants() ([]tenantInfo, error) {
 
@@ -71,33 +61,6 @@ func (config *Config) prepareTenants() ([]tenantInfo, error) {
 
 }
 
-// decrypt password
-func getPW(secret internal.Secret, name string) (string, error) {
-
-	// get encrypted tenant pw
-	if _, ok := secret.Name[name]; !ok {
-		return "", errors.New("encrypted tenant pw info does not exist")
-	}
-
-	// decrypt tenant password
-	pw, err := internal.PwDecrypt(secret.Name[name], secret.Name["secretkey"])
-	if err != nil {
-		return "", err
-	}
-	return pw, nil
-}
-
-// connect to database
-func dbConnect(connStr, user, pw string) *sql.DB {
-
-	connector, err := goHdbDriver.NewDSNConnector("hdb://" + user + ":" + pw + "@" + connStr)
-	if err != nil {
-		log.Fatal(err)
-	}
-	// connector.SetTimeout(timeout)
-	return sql.OpenDB(connector)
-}
-
 // get tenant usage and hana-user schema information
 func (t *tenantInfo) collectRemainingTenantInfos() error {
 
@@ -130,6 +93,43 @@ func (t *tenantInfo) collectRemainingTenantInfos() error {
 		return err
 	}
 	return nil
+}
+
+// add sys schema to SchemaFilter if it does not exists
+func (config *Config) adapSchemaFilter() {
+
+	for mPos := range config.Metrics {
+		if !containsString("sys", config.Metrics[mPos].SchemaFilter) {
+			config.Metrics[mPos].SchemaFilter = append(config.Metrics[mPos].SchemaFilter, "sys")
+		}
+	}
+}
+
+// decrypt password
+func getPW(secret internal.Secret, name string) (string, error) {
+
+	// get encrypted tenant pw
+	if _, ok := secret.Name[name]; !ok {
+		return "", errors.New("encrypted tenant pw info does not exist")
+	}
+
+	// decrypt tenant password
+	pw, err := internal.PwDecrypt(secret.Name[name], secret.Name["secretkey"])
+	if err != nil {
+		return "", err
+	}
+	return pw, nil
+}
+
+// connect to database
+func dbConnect(connStr, user, pw string) *sql.DB {
+
+	connector, err := goHdbDriver.NewDSNConnector("hdb://" + user + ":" + pw + "@" + connStr)
+	if err != nil {
+		log.Fatal(err)
+	}
+	// connector.SetTimeout(timeout)
+	return sql.OpenDB(connector)
 }
 
 // true, if slice contains string

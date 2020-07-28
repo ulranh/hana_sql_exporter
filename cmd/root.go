@@ -4,8 +4,10 @@ import (
 	"database/sql"
 	"flag"
 	"fmt"
+	"log"
 	"os"
 	"path"
+	"strconv"
 	"strings"
 
 	"github.com/BurntSushi/toml"
@@ -113,7 +115,7 @@ func Root() {
 		os.Exit(1)
 	}
 
-	// decode config file
+	// handle and adapt config file
 	var config Config
 	if _, err := toml.DecodeFile(*flags["config"], &config); err != nil {
 		exit(fmt.Sprint("Problem with configfile decoding: ", err))
@@ -124,8 +126,20 @@ func Root() {
 		exit(fmt.Sprint("Problem with configfile content: ", err))
 	}
 
+	// add timeout value to config struct
+	config.timeout, err = strconv.ParseUint(*flags["timeout"], 10, 0)
+	if err != nil {
+		exit(fmt.Sprint(" timeout flag has wrong type", err))
+	}
+
 	// adapt config.Metrics schema filter
 	config.adapSchemaFilter()
+
+	config.Tenants, err = config.prepareTenants()
+	if err != nil {
+		exit(fmt.Sprint(" preparation of tenants not possible", err))
+	}
+	log.Println("232323232: ", config.Metrics)
 
 	// run cmd
 	var cmdFunc = map[string]func(map[string]*string) error{
