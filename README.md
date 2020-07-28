@@ -76,7 +76,7 @@ Below is a description of the tenant and metric struct fields:
 
 | Field        | Type         | Description | Example |
 | ------------ | ------------ |------------ | ------- |
-| Name         | string       | Metric name | "hdb_info" |
+| Name         | string       | Metric name (words separated by underscore, otherwise a panic can occur)| "hdb_info" |
 | Help         | string       | Metric help text | "Hana database version and uptime"|
 | MetricType   | string       | Type of metric | "counter" or "gauge" |
 | TagFilter    | string array | The metric will only be executed, if all values correspond with the existing tenant tags | TagFilter ["abap", "erp"] needs at least tenant Tags ["abap", "erp"] otherwise the metric will not be used |
@@ -143,3 +143,6 @@ The resulting information can be found in the Prometheus expression browser and 
 The image below shows for example the duration of all complete data backups. With one dashboard it is possible to detect hanging or aborted backups of all systems:
 
  ![backups](/examples/images/backups.png)
+
+## More Information
+* [Monitoring SAP and Hana Instances with Prometheus and Grafana](https://blogs.sap.com/2020/02/07/monitoring-sap-and-hana-instances-with-prometheus-and-grafana/) 

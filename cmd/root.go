@@ -124,6 +124,9 @@ func Root() {
 		exit(fmt.Sprint("Problem with configfile content: ", err))
 	}
 
+	// adapt config.Metrics schema filter
+	config.adapSchemaFilter()
+
 	// run cmd
 	var cmdFunc = map[string]func(map[string]*string) error{
 		"pw":  config.pw,
