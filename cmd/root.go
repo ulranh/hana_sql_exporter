@@ -40,7 +40,7 @@ type metricInfo struct {
 type Config struct {
 	Secret  []byte
 	Tenants []tenantInfo
-	Metrics []*metricInfo
+	Metrics []metricInfo
 	timeout uint64
 }
 
