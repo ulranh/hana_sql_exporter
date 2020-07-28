@@ -96,19 +96,19 @@ func (config *Config) collectMetrics() []metricData {
 	var wg sync.WaitGroup
 
 	metricsC := make(chan metricData, len(config.Metrics))
-	for _, metric := range config.Metrics {
+	for mPos := range config.Metrics {
 
 		wg.Add(1)
-		go func(metric *metricInfo, tenants tenantsInfo) {
+		go func(mPos int) {
 
 			defer wg.Done()
 			metricsC <- metricData{
-				name:       metric.Name,
-				help:       metric.Help,
-				metricType: metric.MetricType,
-				stats:      tenants.collectMetric(metric, config.timeout),
+				name:       config.Metrics[mPos].Name,
+				help:       config.Metrics[mPos].Help,
+				metricType: config.Metrics[mPos].MetricType,
+				stats:      config.collectMetric(mPos),
 			}
-		}(metric, config.Tenants)
+		}(mPos)
 	}
 
 	go func() {
@@ -125,21 +125,21 @@ func (config *Config) collectMetrics() []metricData {
 }
 
 // start collecting metric information for all tenants
-func (tenants tenantsInfo) collectMetric(metric *metricInfo, timeout uint64) []statData {
+// func (config *Config) collectMetric(mPos intmetric *metricInfo, timeout uint64) []statData {
+func (config *Config) collectMetric(mPos int) []statData {
 
-	metricC := make(chan []statData, len(tenants))
+	metricC := make(chan []statData, len(config.Tenants))
 
-	for _, tenant := range tenants {
+	for tPos := range config.Tenants {
 
-		go func(metric *metricInfo, tenant *tenantInfo) {
-
-			metricC <- tenant.prepareMetricData(metric)
-		}(metric, tenant)
+		go func(tPos int) {
+			metricC <- config.prepareMetricData(mPos, tPos)
+		}(tPos)
 	}
 
 	i := 0
 	var sData []statData
-	timeAfter := time.After(time.Duration(timeout) * time.Second)
+	timeAfter := time.After(time.Duration(config.timeout) * time.Second)
 
 stopReading:
 	for {
@@ -149,7 +149,7 @@ stopReading:
 				sData = append(sData, mc...)
 			}
 			i += 1
-			if len(tenants) == i {
+			if len(config.Tenants) == i {
 				break stopReading
 			}
 		case <-timeAfter:
@@ -160,39 +160,40 @@ stopReading:
 }
 
 // filter out not associated tenants
-func (tenant *tenantInfo) prepareMetricData(metric *metricInfo) []statData {
+// func (tenant *tenantInfo) prepareMetricData(metric *metricInfo) []statData {
+func (config *Config) prepareMetricData(mPos, tPos int) []statData {
 
 	// all values of metrics tag filter must be in tenants tags, otherwise the
 	// metric is not relevant for the tenant
-	if !subSliceInSlice(metric.TagFilter, tenant.Tags) {
+	if !subSliceInSlice(config.Metrics[mPos].TagFilter, config.Tenants[tPos].Tags) {
 		return nil
 	}
 
-	sel := strings.TrimSpace(metric.SQL)
+	sel := strings.TrimSpace(config.Metrics[mPos].SQL)
 	if !strings.EqualFold(sel[0:6], "select") {
 		log.WithFields(log.Fields{
-			"metric": metric.Name,
-			"tenant": tenant.Name,
+			"metric": config.Metrics[mPos].Name,
+			"tenant": config.Tenants[tPos].Name,
 		}).Error("Only selects are allowed")
 		return nil
 	}
 
 	// metrics schema filter must include a tenant schema
 	var schema string
-	if schema = firstValueInSlice(metric.SchemaFilter, tenant.schemas); 0 == len(schema) {
+	if schema = firstValueInSlice(config.Metrics[mPos].SchemaFilter, config.Tenants[tPos].schemas); 0 == len(schema) {
 		log.WithFields(log.Fields{
-			"metric": metric.Name,
-			"tenant": tenant.Name,
+			"metric": config.Metrics[mPos].Name,
+			"tenant": config.Tenants[tPos].Name,
 		}).Error("SchemaFilter value in toml file is missing")
 		return nil
 	}
 	sel = strings.ReplaceAll(sel, "<SCHEMA>", schema)
 
-	res, err := tenant.getMetricData(sel)
+	res, err := config.Tenants[tPos].getMetricData(sel)
 	if err != nil {
 		log.WithFields(log.Fields{
-			"metric": metric.Name,
-			"tenant": tenant.Name,
+			"metric": config.Metrics[mPos].Name,
+			"tenant": config.Tenants[tPos].Name,
 			"error":  err,
 		}).Error("Can't get sql result for metric")
 		return nil
