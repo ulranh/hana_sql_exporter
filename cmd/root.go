@@ -4,7 +4,6 @@ import (
 	"database/sql"
 	"flag"
 	"fmt"
-	"log"
 	"os"
 	"path"
 	"strconv"
@@ -134,12 +133,6 @@ func Root() {
 
 	// adapt config.Metrics schema filter
 	config.adapSchemaFilter()
-
-	config.Tenants, err = config.prepareTenants()
-	if err != nil {
-		exit(fmt.Sprint(" preparation of tenants not possible", err))
-	}
-	log.Println("232323232: ", config.Metrics)
 
 	// run cmd
 	var cmdFunc = map[string]func(map[string]*string) error{

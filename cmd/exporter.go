@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"database/sql"
+	"fmt"
 	"net/http"
 	"strconv"
 	"strings"
@@ -37,8 +38,12 @@ type statData struct {
 
 // start collector and web server
 func (config *Config) web(flags map[string]*string) error {
-
 	var err error
+
+	config.Tenants, err = config.prepareTenants()
+	if err != nil {
+		exit(fmt.Sprint(" preparation of tenants not possible", err))
+	}
 
 	// tenant connections must be closed at the end
 	for _, t := range config.Tenants {
@@ -70,7 +75,7 @@ func (config *Config) web(flags map[string]*string) error {
 	return nil
 }
 
-// start collecting all metrics and fetch the results
+// collecting all metrics and fetch the results
 func (config *Config) collectMetrics() []metricData {
 
 	var wg sync.WaitGroup
