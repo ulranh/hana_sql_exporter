@@ -132,7 +132,7 @@ func Root() {
 	}
 
 	// adapt config.Metrics schema filter
-	config.adapSchemaFilter()
+	config.adaptSchemaFilter()
 
 	// run cmd
 	var cmdFunc = map[string]func(map[string]*string) error{

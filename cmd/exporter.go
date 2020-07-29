@@ -27,13 +27,47 @@ type metricData struct {
 	name       string
 	help       string
 	metricType string
-	stats      []statData
+	stats      []metricRecord
 }
 
-type statData struct {
+type metricRecord struct {
 	value       float64
 	labels      []string
 	labelValues []string
+}
+
+func newCollector(stats func() []metricData) *collector {
+	return &collector{
+		stats: stats,
+	}
+}
+
+// describe implements prometheus.Collector.
+func (c *collector) Describe(ch chan<- *prometheus.Desc) {
+	prometheus.DescribeByCollect(c, ch)
+}
+
+// collect implements prometheus.Collector.
+func (c *collector) Collect(ch chan<- prometheus.Metric) {
+	// take a stats snapshot. must be concurrency safe.
+	stats := c.stats()
+
+	var valueType = map[string]prometheus.ValueType{
+		"gauge":   prometheus.GaugeValue,
+		"counter": prometheus.CounterValue,
+	}
+
+	for _, mi := range stats {
+		for _, v := range mi.stats {
+			m := prometheus.MustNewConstMetric(
+				prometheus.NewDesc(mi.name, mi.help, v.labels, nil),
+				valueType[strings.ToLower(mi.metricType)],
+				v.value,
+				v.labelValues...,
+			)
+			ch <- m
+		}
+	}
 }
 
 // start collector and web server
@@ -110,19 +144,29 @@ func (config *Config) collectMetrics() []metricData {
 }
 
 // start collecting metric information for all tenants
-func (config *Config) collectMetric(mPos int) []statData {
+func (config *Config) collectMetric(mPos int) []metricRecord {
 
-	metricC := make(chan []statData, len(config.Tenants))
+	metricC := make(chan []metricRecord, len(config.Tenants))
 
 	for tPos := range config.Tenants {
 
 		go func(tPos int) {
+			err := dbPing(config.Tenants[tPos].conn)
+			if err != nil {
+				log.WithFields(log.Fields{
+					"tenant": config.Tenants[tPos].Name,
+					"error":  err,
+				}).Error("Can't connect to tenant!")
+				metricC <- nil
+				return
+			}
+
 			metricC <- config.prepareMetricData(mPos, tPos)
 		}(tPos)
 	}
 
 	i := 0
-	var sData []statData
+	var sData []metricRecord
 	timeAfter := time.After(time.Duration(config.timeout) * time.Second)
 
 stopReading:
@@ -144,7 +188,7 @@ stopReading:
 }
 
 // filter out not associated tenants
-func (config *Config) prepareMetricData(mPos, tPos int) []statData {
+func (config *Config) prepareMetricData(mPos, tPos int) []metricRecord {
 
 	// all values of metrics tag filter must be in tenants tags, otherwise the
 	// metric is not relevant for the tenant
@@ -186,7 +230,7 @@ func (config *Config) prepareMetricData(mPos, tPos int) []statData {
 
 // get metric data for one tenant
 // !!!!!!!!!!!!!!!!! ist tenant pointer oke ????
-func (tenant *tenantInfo) getMetricData(sel string) ([]statData, error) {
+func (tenant *tenantInfo) getMetricData(sel string) ([]metricRecord, error) {
 	var err error
 
 	var rows *sql.Rows
@@ -222,9 +266,9 @@ func (tenant *tenantInfo) getMetricData(sel string) ([]statData, error) {
 		scanArgs[i] = &values[i]
 	}
 
-	var md []statData
+	var md []metricRecord
 	for rows.Next() {
-		data := statData{
+		data := metricRecord{
 			labels:      []string{"tenant", "usage"},
 			labelValues: []string{strings.ToLower(tenant.Name), strings.ToLower(tenant.usage)},
 		}
@@ -259,38 +303,4 @@ func (tenant *tenantInfo) getMetricData(sel string) ([]statData, error) {
 		return nil, errors.Wrap(err, "GetSqlData - rows")
 	}
 	return md, nil
-}
-
-func newCollector(stats func() []metricData) *collector {
-	return &collector{
-		stats: stats,
-	}
-}
-
-// describe implements prometheus.Collector.
-func (c *collector) Describe(ch chan<- *prometheus.Desc) {
-	prometheus.DescribeByCollect(c, ch)
-}
-
-// collect implements prometheus.Collector.
-func (c *collector) Collect(ch chan<- prometheus.Metric) {
-	// take a stats snapshot. must be concurrency safe.
-	stats := c.stats()
-
-	var valueType = map[string]prometheus.ValueType{
-		"gauge":   prometheus.GaugeValue,
-		"counter": prometheus.CounterValue,
-	}
-
-	for _, mi := range stats {
-		for _, v := range mi.stats {
-			m := prometheus.MustNewConstMetric(
-				prometheus.NewDesc(mi.name, mi.help, v.labels, nil),
-				valueType[strings.ToLower(mi.metricType)],
-				v.value,
-				v.labelValues...,
-			)
-			ch <- m
-		}
-	}
 }

@@ -36,7 +36,7 @@ func (config *Config) prepareTenants() ([]tenantInfo, error) {
 
 		// connect to db tenant
 		config.Tenants[i].conn = dbConnect(config.Tenants[i].ConnStr, config.Tenants[i].User, pw)
-		err = config.Tenants[i].conn.Ping()
+		err = dbPing(config.Tenants[i].conn)
 		if err != nil {
 			log.WithFields(log.Fields{
 				"tenant": config.Tenants[i].Name,
@@ -96,7 +96,7 @@ func (t *tenantInfo) collectRemainingTenantInfos() error {
 }
 
 // add sys schema to SchemaFilter if it does not exists
-func (config *Config) adapSchemaFilter() {
+func (config *Config) adaptSchemaFilter() {
 
 	for mPos := range config.Metrics {
 		if !containsString("sys", config.Metrics[mPos].SchemaFilter) {
@@ -130,6 +130,15 @@ func dbConnect(connStr, user, pw string) *sql.DB {
 	}
 	// connector.SetTimeout(timeout)
 	return sql.OpenDB(connector)
+}
+
+// check if ping works
+func dbPing(conn *sql.DB) error {
+	err := conn.Ping()
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 // true, if slice contains string
