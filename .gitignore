@@ -1,11 +1,18 @@
-# Ignore all
-*
+*.log
+hana_sql_exporter
 
-!Dockerfile
+# Binaries for programs and plugins
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
 
-# Unignore all with extensions
-!*.*
+# Test binary, built with `go test -c`
+*.test
 
-# Unignore all dirs
-!*/
+# Output of the go coverage tool, specifically when used with LiteIDE
+*.out
 
+# Dependency directories (remove the comment below to include it)
+# vendor/
