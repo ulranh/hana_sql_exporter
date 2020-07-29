@@ -128,7 +128,7 @@ func dbConnect(connStr, user, pw string) *sql.DB {
 	return sql.OpenDB(connector)
 }
 
-// check if ping works
+// check if connection works
 func dbPing(name string, conn *sql.DB) error {
 	err := conn.Ping()
 	if err != nil {
