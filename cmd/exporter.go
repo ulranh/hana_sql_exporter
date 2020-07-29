@@ -151,12 +151,12 @@ func (config *Config) collectMetric(mPos int) []metricRecord {
 	for tPos := range config.Tenants {
 
 		go func(tPos int) {
-			err := dbPing(config.Tenants[tPos].conn)
+			err := dbPing(config.Tenants[tPos].Name, config.Tenants[tPos].conn)
 			if err != nil {
-				log.WithFields(log.Fields{
-					"tenant": config.Tenants[tPos].Name,
-					"error":  err,
-				}).Error("Can't connect to tenant!")
+				// log.WithFields(log.Fields{
+				// 	"tenant": config.Tenants[tPos].Name,
+				// 	"error":  err,
+				// }).Error("Can't connect to tenant!")
 				metricC <- nil
 				return
 			}

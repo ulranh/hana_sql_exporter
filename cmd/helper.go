@@ -36,12 +36,8 @@ func (config *Config) prepareTenants() ([]tenantInfo, error) {
 
 		// connect to db tenant
 		config.Tenants[i].conn = dbConnect(config.Tenants[i].ConnStr, config.Tenants[i].User, pw)
-		err = dbPing(config.Tenants[i].conn)
+		err = dbPing(config.Tenants[i].Name, config.Tenants[i].conn)
 		if err != nil {
-			log.WithFields(log.Fields{
-				"tenant": config.Tenants[i].Name,
-				"error":  err,
-			}).Error("Can't connect to tenant - tenant removed!")
 			continue
 		}
 
@@ -133,9 +129,13 @@ func dbConnect(connStr, user, pw string) *sql.DB {
 }
 
 // check if ping works
-func dbPing(conn *sql.DB) error {
+func dbPing(name string, conn *sql.DB) error {
 	err := conn.Ping()
 	if err != nil {
+		log.WithFields(log.Fields{
+			"tenant": name,
+			"error":  err,
+		}).Error("Can't connect to tenant")
 		return err
 	}
 	return nil
