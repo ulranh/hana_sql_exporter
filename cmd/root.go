@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"os"
 	"path"
-	"strconv"
 	"strings"
 
 	"github.com/BurntSushi/toml"
@@ -124,15 +123,6 @@ func Root() {
 	if err = config.parseConfigInfo(command); err != nil {
 		exit(fmt.Sprint("Problem with configfile content: ", err))
 	}
-
-	// add timeout value to config struct
-	config.timeout, err = strconv.ParseUint(*flags["timeout"], 10, 0)
-	if err != nil {
-		exit(fmt.Sprint(" timeout flag has wrong type", err))
-	}
-
-	// adapt config.Metrics schema filter
-	config.adaptSchemaFilter()
 
 	// run cmd
 	var cmdFunc = map[string]func(map[string]*string) error{

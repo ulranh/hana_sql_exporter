@@ -74,7 +74,7 @@ func (c *collector) Collect(ch chan<- prometheus.Metric) {
 func (config *Config) web(flags map[string]*string) error {
 	var err error
 
-	config.Tenants, err = config.prepareTenants()
+	config.Tenants, err = config.prepare(flags)
 	if err != nil {
 		exit(fmt.Sprint(" preparation of tenants not possible", err))
 	}

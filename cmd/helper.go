@@ -2,6 +2,8 @@ package cmd
 
 import (
 	"database/sql"
+	"fmt"
+	"strconv"
 	"strings"
 
 	goHdbDriver "github.com/SAP/go-hdb/driver"
@@ -12,9 +14,19 @@ import (
 )
 
 // add missing information to tenant struct
-func (config *Config) prepareTenants() ([]tenantInfo, error) {
+func (config *Config) prepare(flags map[string]*string) ([]tenantInfo, error) {
 
+	var err error
 	var tenantsOk []tenantInfo
+
+	// add timeout value to config struct
+	config.timeout, err = strconv.ParseUint(*flags["timeout"], 10, 0)
+	if err != nil {
+		exit(fmt.Sprint(" timeout flag has wrong type", err))
+	}
+
+	// adapt config.Metrics schema filter
+	config.adaptSchemaFilter()
 
 	// unmarshal secret byte array
 	var secret internal.Secret
