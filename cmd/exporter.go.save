@@ -212,7 +212,7 @@ func (config *Config) prepareMetricData(mPos, tPos int) []metricRecord {
 	}
 	sel = strings.ReplaceAll(sel, "<SCHEMA>", schema)
 
-	res, err := config.getMetricData(tPos, sel)
+	res, err := config.Tenants[tPos].getMetricData(sel)
 	if err != nil {
 		log.WithFields(log.Fields{
 			"metric": config.Metrics[mPos].Name,
@@ -226,12 +226,11 @@ func (config *Config) prepareMetricData(mPos, tPos int) []metricRecord {
 
 // get metric data for one tenant
 // !!!!!!!!!!!!!!!!! ist tenant pointer oke ????
-// func (tenant *tenantInfo) getMetricData(sel string) ([]metricRecord, error) {
-func (config *Config) getMetricData(tPos int, sel string) ([]metricRecord, error) {
+func (tenant *tenantInfo) getMetricData(sel string) ([]metricRecord, error) {
 	var err error
 
 	var rows *sql.Rows
-	rows, err = config.Tenants[tPos].conn.Query(sel)
+	rows, err = tenant.conn.Query(sel)
 	if err != nil {
 		return nil, errors.Wrap(err, "GetSqlData - query")
 	}
@@ -267,7 +266,7 @@ func (config *Config) getMetricData(tPos int, sel string) ([]metricRecord, error
 	for rows.Next() {
 		data := metricRecord{
 			labels:      []string{"tenant", "usage"},
-			labelValues: []string{strings.ToLower(config.Tenants[tPos].Name), strings.ToLower(config.Tenants[tPos].usage)},
+			labelValues: []string{strings.ToLower(tenant.Name), strings.ToLower(tenant.usage)},
 		}
 		err = rows.Scan(scanArgs...)
 		if err != nil {
