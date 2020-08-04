@@ -1,6 +1,9 @@
 *.log
 hana_sql_exporter
 
+# configfile in root folder
+/hana_sql_exporter.toml
+
 # Binaries for programs and plugins
 *.exe
 *.exe~
