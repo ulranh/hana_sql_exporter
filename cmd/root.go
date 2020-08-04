@@ -24,8 +24,6 @@ type tenantInfo struct {
 	conn    *sql.DB
 }
 
-// type tenantsInfo []*tenantInfo
-
 // metric info
 type metricInfo struct {
 	Name         string

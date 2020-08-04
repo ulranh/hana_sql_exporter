@@ -4,9 +4,6 @@ import (
 	"database/sql"
 	"fmt"
 	"net/http"
-	// pprof !!!!!!!!!!!!!!!!!!!!!!
-	"net/http/pprof"
-	// pprof !!!!!!!!!!!!!!!!!!!!!!
 	"strconv"
 	"strings"
 	"sync"
@@ -76,7 +73,6 @@ func (c *collector) Collect(ch chan<- prometheus.Metric) {
 // start collector and web server
 func (config *Config) web(flags map[string]*string) error {
 	var err error
-	// log.Println("config !!!!!!!!!: ", &config)
 
 	config.Tenants, err = config.prepare(flags)
 	if err != nil {
@@ -103,26 +99,23 @@ func (config *Config) web(flags map[string]*string) error {
 	mux.Handle("/metrics", promhttp.Handler())
 	mux.HandleFunc("/", rootHandler)
 
-	// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 	// Add the pprof routes
-	mux.HandleFunc("/debug/pprof/", pprof.Index)
-	mux.HandleFunc("/debug/pprof/cmdline", pprof.Cmdline)
-	mux.HandleFunc("/debug/pprof/profile", pprof.Profile)
-	mux.HandleFunc("/debug/pprof/symbol", pprof.Symbol)
-	mux.HandleFunc("/debug/pprof/trace", pprof.Trace)
+	// mux.HandleFunc("/debug/pprof/", pprof.Index)
+	// mux.HandleFunc("/debug/pprof/cmdline", pprof.Cmdline)
+	// mux.HandleFunc("/debug/pprof/profile", pprof.Profile)
+	// mux.HandleFunc("/debug/pprof/symbol", pprof.Symbol)
+	// mux.HandleFunc("/debug/pprof/trace", pprof.Trace)
 
-	mux.Handle("/debug/pprof/block", pprof.Handler("block"))
-	mux.Handle("/debug/pprof/goroutine", pprof.Handler("goroutine"))
-	mux.Handle("/debug/pprof/heap", pprof.Handler("heap"))
-	mux.Handle("/debug/pprof/threadcreate", pprof.Handler("threadcreate"))
-	// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+	// mux.Handle("/debug/pprof/block", pprof.Handler("block"))
+	// mux.Handle("/debug/pprof/goroutine", pprof.Handler("goroutine"))
+	// mux.Handle("/debug/pprof/heap", pprof.Handler("heap"))
+	// mux.Handle("/debug/pprof/threadcreate", pprof.Handler("threadcreate"))
 
 	server := &http.Server{
-		Addr:    ":" + *flags["port"],
-		Handler: mux,
-		// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-		// WriteTimeout: 10 * time.Second,
-		// ReadTimeout:  10 * time.Second,
+		Addr:         ":" + *flags["port"],
+		Handler:      mux,
+		WriteTimeout: 10 * time.Second,
+		ReadTimeout:  10 * time.Second,
 	}
 	err = server.ListenAndServe()
 	if err != nil {
@@ -137,7 +130,6 @@ func rootHandler(w http.ResponseWriter, r *http.Request) {
 
 // collecting all metrics and fetch the results
 func (config *Config) collectMetrics() []metricData {
-	// log.Println("config !!!!!!!!!: ", &config)
 
 	var wg sync.WaitGroup
 
@@ -172,7 +164,6 @@ func (config *Config) collectMetrics() []metricData {
 
 // start collecting metric information for all tenants
 func (config *Config) collectMetric(mPos int) []metricRecord {
-	// log.Println("config !!!!!!!!!: ", &config)
 
 	tenantCnt := len(config.Tenants)
 	metricC := make(chan []metricRecord, tenantCnt)
@@ -187,7 +178,6 @@ func (config *Config) collectMetric(mPos int) []metricRecord {
 
 	i := 0
 	var sData []metricRecord
-	// log.Println("!!!!!!!!!!!!!!!!: ", config.timeout)
 	timeAfter := time.After(time.Duration(config.timeout) * time.Second)
 
 stopReading:
@@ -210,7 +200,6 @@ stopReading:
 
 // filter out not associated tenants
 func (config *Config) prepareMetricData(mPos, tPos int) []metricRecord {
-	// log.Println("config !!!!!!!!!: ", &config)
 
 	// all values of metrics tag filter must be in tenants tags, otherwise the
 	// metric is not relevant for the tenant
@@ -239,7 +228,6 @@ func (config *Config) prepareMetricData(mPos, tPos int) []metricRecord {
 	sel = strings.ReplaceAll(sel, "<SCHEMA>", schema)
 
 	// if metric is relevant, check connection
-	// !!!!!!!!!!!!!!!!!!!
 	// err := dbPing(config.Tenants[tPos].Name, config.Tenants[tPos].conn)
 	// if err != nil {
 	// 	return nil
@@ -259,8 +247,6 @@ func (config *Config) prepareMetricData(mPos, tPos int) []metricRecord {
 }
 
 // get metric data for one tenant
-// !!!!!!!!!!!!!!!!! ist tenant pointer oke ????
-// func (tenant *tenantInfo) getMetricData(sel string) ([]metricRecord, error) {
 func (tenant *tenantInfo) getMetricData(sel string) ([]metricRecord, error) {
 	var err error
 
@@ -302,82 +288,6 @@ func (tenant *tenantInfo) getMetricData(sel string) ([]metricRecord, error) {
 		data := metricRecord{
 			labels:      []string{"tenant", "usage"},
 			labelValues: []string{strings.ToLower(tenant.Name), strings.ToLower(tenant.usage)},
-		}
-		err = rows.Scan(scanArgs...)
-		if err != nil {
-			return nil, errors.Wrap(err, "GetSqlData - rows.Scan")
-		}
-
-		for i, colval := range values {
-
-			// check for NULL value
-			if colval == nil {
-				return nil, errors.Wrap(err, "GetSqlData - colval is null")
-			}
-
-			if 0 == i {
-
-				// the first column must be the float value
-				data.value, err = strconv.ParseFloat(string(colval), 64)
-				if err != nil {
-					return nil, errors.Wrap(err, "GetSqlData - first column cannot be converted to float64")
-				}
-			} else {
-				data.labels = append(data.labels, strings.ToLower(cols[i]))
-				data.labelValues = append(data.labelValues, strings.ToLower(strings.Join(strings.Split(string(colval), " "), "_")))
-
-			}
-		}
-		md = append(md, data)
-	}
-	if err = rows.Err(); err != nil {
-		return nil, errors.Wrap(err, "GetSqlData - rows")
-	}
-	return md, nil
-}
-
-// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-func (config *Config) getMetricData111111(tPos int, sel string) ([]metricRecord, error) {
-	var err error
-
-	var rows *sql.Rows
-	rows, err = config.Tenants[tPos].conn.Query(sel)
-	if err != nil {
-		return nil, errors.Wrap(err, "GetSqlData - query")
-	}
-	defer rows.Close()
-
-	cols, err := rows.Columns()
-	if err != nil {
-		return nil, errors.Wrap(err, "GetSqlData - columns")
-	}
-
-	if len(cols) < 1 {
-		return nil, errors.Wrap(err, "GetSqlData - no columns")
-	}
-
-	// first column must not be string
-	colt, err := rows.ColumnTypes()
-	if err != nil {
-		return nil, errors.Wrap(err, "GetSqlData - columnTypes")
-	}
-	switch colt[0].ScanType().Name() {
-	case "string", "bool", "":
-		return nil, errors.New("GetSqlData - first column must be numeric")
-	default:
-	}
-
-	values := make([]sql.RawBytes, len(cols))
-	scanArgs := make([]interface{}, len(values))
-	for i := range values {
-		scanArgs[i] = &values[i]
-	}
-
-	var md []metricRecord
-	for rows.Next() {
-		data := metricRecord{
-			labels:      []string{"tenant", "usage"},
-			labelValues: []string{strings.ToLower(config.Tenants[tPos].Name), strings.ToLower(config.Tenants[tPos].usage)},
 		}
 		err = rows.Scan(scanArgs...)
 		if err != nil {
