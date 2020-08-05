@@ -1,5 +1,8 @@
 *.log
+*.old
+*.save
 hana_sql_exporter
+/hana_sql_exporter.*
 
 # configfile in root folder
 /hana_sql_exporter.toml
