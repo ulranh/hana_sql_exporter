@@ -36,7 +36,7 @@ func (config *Config) prepare(flags map[string]*string) ([]tenantInfo, error) {
 
 	for i := 0; i < len(config.Tenants); i++ {
 
-		pw, err := getPW(secret, config.Tenants[i].Name)
+		pw, err := getPW(secret, strings.ToLower(config.Tenants[i].Name))
 		if err != nil {
 			log.WithFields(log.Fields{
 				"tenant": config.Tenants[i].Name,
@@ -48,8 +48,7 @@ func (config *Config) prepare(flags map[string]*string) ([]tenantInfo, error) {
 
 		// connect to db tenant
 		config.Tenants[i].conn = dbConnect(config.Tenants[i].ConnStr, config.Tenants[i].User, pw)
-		err = dbPing(config.Tenants[i].Name, config.Tenants[i].conn)
-		if err != nil {
+		if err = dbPing(config.Tenants[i].Name, config.Tenants[i].conn); err != nil {
 			continue
 		}
 
