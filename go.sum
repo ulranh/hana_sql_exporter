@@ -1,5 +1,7 @@
 github.com/BurntSushi/toml v0.3.1 h1:WXkYYl6Yr3qBf1K79EBnL4mak0OimBfB0XUf9Vl28OQ=
 github.com/BurntSushi/toml v0.3.1/go.mod h1:xHWCNGjB5oqiDr8zfno3MHue2Ht5sIBksp03qcyfWMU=
+github.com/SAP/go-hdb v0.14.0 h1:e6lvHlwRcjjDGeiv8PtKZHadTWsEGVMr9Zqc/iolwgM=
+github.com/SAP/go-hdb v0.14.0/go.mod h1:7fdQLVC2lER3urZLjZCm0AuMQfApof92n3aylBPEkMo=
 github.com/SAP/go-hdb v0.14.1 h1:hkw4ozGZ/i4eak7ZuGkY5e0hxiXFdNUBNhr4AvZVNFE=
 github.com/SAP/go-hdb v0.14.1/go.mod h1:7fdQLVC2lER3urZLjZCm0AuMQfApof92n3aylBPEkMo=
 github.com/SAP/go-hdb v0.100.10 h1:lgAGyCCKjD3YE85pgSG5a6oaQLdnSI5NaHo3tqc1GSg=
