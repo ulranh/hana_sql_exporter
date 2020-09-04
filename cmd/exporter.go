@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
 	"net/http"
@@ -162,37 +163,34 @@ func (config *Config) collectMetrics() []metricData {
 	return metricsData
 }
 
-// start collecting metric information for all tenants
 func (config *Config) collectMetric(mPos int) []metricRecord {
 
 	tenantCnt := len(config.Tenants)
 	metricC := make(chan []metricRecord, tenantCnt)
 
+	// set timeout
+	ctx, cancel := context.WithDeadline(context.Background(), time.Now().Add(time.Duration(config.timeout)*time.Second))
+	defer cancel()
+
 	for tPos := range config.Tenants {
 
 		go func(tPos int) {
-
 			metricC <- config.prepareMetricData(mPos, tPos)
 		}(tPos)
 	}
 
-	i := 0
+	// collect data
 	var sData []metricRecord
-	timeAfter := time.After(time.Duration(config.timeout) * time.Second)
-
-stopReading:
-	for {
+	for i := 0; i < tenantCnt; i++ {
 		select {
 		case mc := <-metricC:
 			if mc != nil {
 				sData = append(sData, mc...)
 			}
-			i += 1
-			if tenantCnt == i {
-				break stopReading
-			}
-		case <-timeAfter:
-			break stopReading
+			fmt.Println("OK", i)
+		case <-ctx.Done():
+			// fmt.Println("TIMEOUT!")
+			return sData
 		}
 	}
 	return sData
@@ -200,6 +198,10 @@ stopReading:
 
 // filter out not associated tenants
 func (config *Config) prepareMetricData(mPos, tPos int) []metricRecord {
+
+	// !!!!!!!!!!!!!!!
+	// t := rand.Intn(5)
+	// time.Sleep(time.Duration(t) * time.Second)
 
 	// all values of metrics tag filter must be in tenants tags, otherwise the
 	// metric is not relevant for the tenant
