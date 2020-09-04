@@ -187,7 +187,7 @@ func (config *Config) collectMetric(mPos int) []metricRecord {
 			if mc != nil {
 				sData = append(sData, mc...)
 			}
-			fmt.Println("OK", i)
+			// fmt.Println("OK", i)
 		case <-ctx.Done():
 			// fmt.Println("TIMEOUT!")
 			return sData
