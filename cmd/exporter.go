@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"fmt"
 	"net/http"
+	"net/http/pprof"
 	"strconv"
 	"strings"
 	"sync"
@@ -80,7 +81,7 @@ func (config *Config) web(flags map[string]*string) error {
 		exit(fmt.Sprint(" preparation of tenants not possible", err))
 	}
 
-	// tenant connections must be closed at the end
+	// close tenant connections at the end
 	for _, t := range config.Tenants {
 		defer t.conn.Close()
 	}
@@ -101,22 +102,22 @@ func (config *Config) web(flags map[string]*string) error {
 	mux.HandleFunc("/", rootHandler)
 
 	// Add the pprof routes
-	// mux.HandleFunc("/debug/pprof/", pprof.Index)
-	// mux.HandleFunc("/debug/pprof/cmdline", pprof.Cmdline)
-	// mux.HandleFunc("/debug/pprof/profile", pprof.Profile)
-	// mux.HandleFunc("/debug/pprof/symbol", pprof.Symbol)
-	// mux.HandleFunc("/debug/pprof/trace", pprof.Trace)
+	mux.HandleFunc("/debug/pprof/", pprof.Index)
+	mux.HandleFunc("/debug/pprof/cmdline", pprof.Cmdline)
+	mux.HandleFunc("/debug/pprof/profile", pprof.Profile)
+	mux.HandleFunc("/debug/pprof/symbol", pprof.Symbol)
+	mux.HandleFunc("/debug/pprof/trace", pprof.Trace)
 
-	// mux.Handle("/debug/pprof/block", pprof.Handler("block"))
-	// mux.Handle("/debug/pprof/goroutine", pprof.Handler("goroutine"))
-	// mux.Handle("/debug/pprof/heap", pprof.Handler("heap"))
-	// mux.Handle("/debug/pprof/threadcreate", pprof.Handler("threadcreate"))
+	mux.Handle("/debug/pprof/block", pprof.Handler("block"))
+	mux.Handle("/debug/pprof/goroutine", pprof.Handler("goroutine"))
+	mux.Handle("/debug/pprof/heap", pprof.Handler("heap"))
+	mux.Handle("/debug/pprof/threadcreate", pprof.Handler("threadcreate"))
 
 	server := &http.Server{
-		Addr:         ":" + *flags["port"],
-		Handler:      mux,
-		WriteTimeout: 10 * time.Second,
-		ReadTimeout:  10 * time.Second,
+		Addr:    ":" + *flags["port"],
+		Handler: mux,
+		// WriteTimeout: 10 * time.Second,
+		// ReadTimeout:  10 * time.Second,
 	}
 	err = server.ListenAndServe()
 	if err != nil {
@@ -253,6 +254,7 @@ func (tenant *tenantInfo) getMetricData(sel string) ([]metricRecord, error) {
 	var err error
 
 	var rows *sql.Rows
+
 	rows, err = tenant.conn.Query(sel)
 	if err != nil {
 		return nil, errors.Wrap(err, "GetSqlData - query")

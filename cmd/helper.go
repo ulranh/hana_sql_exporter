@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"time"
 
 	goHdbDriver "github.com/SAP/go-hdb/driver"
 	"github.com/golang/protobuf/proto"
@@ -135,8 +136,14 @@ func dbConnect(connStr, user, pw string) *sql.DB {
 	if err != nil {
 		log.Fatal(err)
 	}
-	// connector.SetTimeout(timeout)
-	return sql.OpenDB(connector)
+	connector.SetTimeout(10)
+
+	db := sql.OpenDB(connector)
+	db.SetMaxOpenConns(25)
+	db.SetMaxIdleConns(25)
+	db.SetConnMaxLifetime(5 * time.Minute)
+
+	return db
 }
 
 // check if connection works
