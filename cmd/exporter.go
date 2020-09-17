@@ -126,7 +126,7 @@ func (config *Config) web(flags map[string]*string) error {
 }
 
 func rootHandler(w http.ResponseWriter, r *http.Request) {
-	fmt.Fprintf(w, "prometheus hana_sql_exporter")
+	fmt.Fprintf(w, "prometheus hana_sql_exporter: please call <host>:<port>/metrics")
 }
 
 // collecting all metrics and fetch the results
