@@ -4,7 +4,7 @@ go 1.14
 
 require (
 	github.com/BurntSushi/toml v0.3.1
-	github.com/SAP/go-hdb v0.101.1
+	github.com/SAP/go-hdb v0.100.14
 	github.com/golang/protobuf v1.4.2
 	github.com/mitchellh/go-homedir v1.1.0
 	github.com/pkg/errors v0.9.1
