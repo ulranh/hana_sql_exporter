@@ -30,13 +30,10 @@ import (
 // pwCmd represents the pw command
 var pwCmd = &cobra.Command{
 	Use:   "pw",
-	Short: "A brief description of your command",
-	Long: `A longer description that spans multiple lines and likely contains examples
-and usage of using your command. For example:
-
-Cobra is a CLI library for Go that empowers applications.
-This application is a tool to generate the needed files
-to quickly create a Cobra application.`,
+	Short: "Set passwords for the tenants in the config file",
+	Long: `With the command pw you can set the passwords for the tenants you want to monitor. You can set the password for one tenant or several tenants separated by comma. For example:
+	hana_sql_exporter pw --tenant d01
+	hana_sql_exporter pw -t d01,d02 --config ./.hana_sql_exporter.toml`,
 	Run: func(cmd *cobra.Command, args []string) {
 
 		config, err := getConfig()
@@ -59,7 +56,7 @@ func init() {
 	// and all subcommands, e.g.:
 	// pwCmd.PersistentFlags().String("foo", "", "A help for foo")
 
-	pwCmd.PersistentFlags().String("tenant", "", "name(s) of tenant(s) - lower case words separated by comma e.g. --tenant P01,P02")
+	pwCmd.PersistentFlags().StringP("tenant", "t", "", "name(s) of tenant(s) separated by comma")
 	pwCmd.MarkPersistentFlagRequired("tenant")
 	// Cobra supports local flags which will only run when this command
 	// is called directly, e.g.:

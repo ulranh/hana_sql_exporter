@@ -57,13 +57,10 @@ type metricRecord struct {
 // webCmd represents the web command
 var webCmd = &cobra.Command{
 	Use:   "web",
-	Short: "A brief description of your command",
-	Long: `A longer description that spans multiple lines and likely contains examples
-and usage of using your command. For example:
-
-Cobra is a CLI library for Go that empowers applications.
-This application is a tool to generate the needed files
-to quickly create a Cobra application.`,
+	Short: "Run the exporter",
+	Long: `With the command web you can start the hana sql exporter. For example:
+	hana_sql_exporter web
+	hana_sql_exporter web --config ./hana_sql_exporter.toml`,
 	Run: func(cmd *cobra.Command, args []string) {
 		// fmt.Println("web called")
 		config, err := getConfig()
@@ -71,8 +68,6 @@ to quickly create a Cobra application.`,
 			exit("web - getConfig", err)
 		}
 
-		// fmt.Println(cmd.Flags().GetString("port"))
-		// fmt.Println(cmd.Flags().GetUint("timeout"))
 		config.timeout, err = cmd.Flags().GetUint("timeout")
 		if err != nil {
 			exit("web - GetUint(timeout)", err)
@@ -92,9 +87,9 @@ to quickly create a Cobra application.`,
 func init() {
 	RootCmd.AddCommand(webCmd)
 
-	webCmd.PersistentFlags().Uint("timeout", 5, "scrape timeout of the hana_sql_exporter in seconds.")
+	webCmd.PersistentFlags().UintP("timeout", "t", 5, "scrape timeout of the hana_sql_exporter in seconds.")
 	// webCmd.MarkPersistentFlagRequired("timeout")
-	webCmd.PersistentFlags().String("port", "9658", "port, the hana_sql_exporter listens to.")
+	webCmd.PersistentFlags().StringP("port", "p", "9658", "port, the hana_sql_exporter listens to.")
 	// webCmd.MarkPersistentFlagRequired("port")
 	// Here you will define your flags and configuration settings.
 

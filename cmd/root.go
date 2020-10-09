@@ -63,13 +63,8 @@ var cfgFile string
 // RootCmd represents the base command when called without any subcommands
 var RootCmd = &cobra.Command{
 	Use:   "hana_sql_exporter",
-	Short: "A brief description of your application",
-	Long: `A longer description that spans multiple lines and likely contains
-examples and usage of using your application. For example:
-
-Cobra is a CLI library for Go that empowers applications.
-This application is a tool to generate the needed files
-to quickly create a Cobra application.`,
+	Short: "The purpose of this exporter is to support monitoring SAP and SAP HanaDB instances with Prometheus and Grafana.",
+	Long:  `The purpose of the hana_sql_exporter is to support monitoring SAP and SAP HanaDB instances with Prometheus and Grafana. As the name suggests, with the hana_sql_exporter a sql select is responsible for the data retrieval. By definition the first column must represent the value of the metric. The following columns are used as labels and must be string values.`,
 	// Uncomment the following line if your bare application
 	// has an action associated with it:
 	//	Run: func(cmd *cobra.Command, args []string) { },
@@ -90,7 +85,7 @@ func init() {
 	// Here you will define your flags and configuration settings.
 	// Cobra supports persistent flags, which, if defined here,
 	// will be global for your application.
-	RootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.hana_sql_exporter.toml)")
+	RootCmd.PersistentFlags().StringVarP(&cfgFile, "config", "c", "", "config file (default is $HOME/.hana_sql_exporter.toml)")
 
 	// Cobra also supports local flags, which will only run
 	// when this action is called directly.
