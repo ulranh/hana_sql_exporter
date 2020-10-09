@@ -1,3 +1,17 @@
+// Copyright © 2020 Ulrich Anhalt <ulrich.anhalt@gmail.com>
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package cmd
 
 import (
@@ -10,10 +24,13 @@ import (
 	"sync"
 	"time"
 
+	"github.com/golang/protobuf/proto"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	log "github.com/sirupsen/logrus"
+	"github.com/spf13/cobra"
+	"github.com/ulranh/hana_sql_exporter/internal"
 )
 
 type collector struct {
@@ -35,6 +52,59 @@ type metricRecord struct {
 	value       float64
 	labels      []string
 	labelValues []string
+}
+
+// webCmd represents the web command
+var webCmd = &cobra.Command{
+	Use:   "web",
+	Short: "A brief description of your command",
+	Long: `A longer description that spans multiple lines and likely contains examples
+and usage of using your command. For example:
+
+Cobra is a CLI library for Go that empowers applications.
+This application is a tool to generate the needed files
+to quickly create a Cobra application.`,
+	Run: func(cmd *cobra.Command, args []string) {
+		// fmt.Println("web called")
+		config, err := getConfig()
+		if err != nil {
+			exit("web - getConfig", err)
+		}
+
+		// fmt.Println(cmd.Flags().GetString("port"))
+		// fmt.Println(cmd.Flags().GetUint("timeout"))
+		config.timeout, err = cmd.Flags().GetUint("timeout")
+		if err != nil {
+			exit("web - GetUint(timeout)", err)
+		}
+		config.port, err = cmd.Flags().GetString("port")
+		if err != nil {
+			exit("web - GetUint(port)", err)
+		}
+
+		err = config.web()
+		if err != nil {
+			exit(" pw - setPw", err)
+		}
+	},
+}
+
+func init() {
+	RootCmd.AddCommand(webCmd)
+
+	webCmd.PersistentFlags().Uint("timeout", 5, "scrape timeout of the hana_sql_exporter in seconds.")
+	// webCmd.MarkPersistentFlagRequired("timeout")
+	webCmd.PersistentFlags().String("port", "9658", "port, the hana_sql_exporter listens to.")
+	// webCmd.MarkPersistentFlagRequired("port")
+	// Here you will define your flags and configuration settings.
+
+	// Cobra supports Persistent Flags which will work for this command
+	// and all subcommands, e.g.:
+	// webCmd.PersistentFlags().String("foo", "", "A help for foo")
+
+	// Cobra supports local flags which will only run when this command
+	// is called directly, e.g.:
+	// webCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
 }
 
 func newCollector(stats func() []metricData) *collector {
@@ -72,12 +142,12 @@ func (c *collector) Collect(ch chan<- prometheus.Metric) {
 }
 
 // start collector and web server
-func (config *Config) web(flags map[string]*string) error {
+func (config *Config) web() error {
 	var err error
 
-	config.Tenants, err = config.prepare(flags)
+	config.Tenants, err = config.prepare()
 	if err != nil {
-		exit(fmt.Sprint(" preparation of tenants not possible", err))
+		exit(" preparation of tenants not possible", err)
 	}
 
 	// close tenant connections at the end
@@ -113,7 +183,7 @@ func (config *Config) web(flags map[string]*string) error {
 	// mux.Handle("/debug/pprof/threadcreate", pprof.Handler("threadcreate"))
 
 	server := &http.Server{
-		Addr:         ":" + *flags["port"],
+		Addr:         ":" + config.port,
 		Handler:      mux,
 		WriteTimeout: 10 * time.Second,
 		ReadTimeout:  10 * time.Second,
@@ -323,4 +393,146 @@ func (tenant *tenantInfo) getMetricData(sel string) ([]metricRecord, error) {
 		return nil, errors.Wrap(err, "GetSqlData - rows")
 	}
 	return md, nil
+}
+
+// add missing information to tenant struct
+func (config *Config) prepare() ([]tenantInfo, error) {
+
+	// var err error
+	var tenantsOk []tenantInfo
+
+	// add timeout value to config struct
+	// config.timeout, err = strconv.ParseUint(*flags["timeout"], 10, 0)
+	// if err != nil {
+	// 	fmt.Println(" timeout flag has wrong type", err)
+	// 	os.Exit(1)
+	// }
+
+	// adapt config.Metrics schema filter
+	config.adaptSchemaFilter()
+
+	// unmarshal secret byte array
+	var secret internal.Secret
+	if err := proto.Unmarshal(config.Secret, &secret); err != nil {
+		return nil, errors.Wrap(err, " unable to unmarshal secret")
+	}
+
+	for i := 0; i < len(config.Tenants); i++ {
+
+		pw, err := getPW(secret, strings.ToLower(config.Tenants[i].Name))
+		if err != nil {
+			log.WithFields(log.Fields{
+				"tenant": config.Tenants[i].Name,
+				"error":  err,
+			}).Error("Can't find or decrypt password for tenant - tenant removed!")
+
+			continue
+		}
+
+		// connect to db tenant
+		config.Tenants[i].conn = dbConnect(config.Tenants[i].ConnStr, config.Tenants[i].User, pw)
+		if err = dbPing(config.Tenants[i].Name, config.Tenants[i].conn); err != nil {
+			continue
+		}
+
+		// get tenant usage and hana-user schema information
+		err = config.Tenants[i].collectRemainingTenantInfos()
+		if err != nil {
+			log.WithFields(log.Fields{
+				"tenant": config.Tenants[i].Name,
+				"error":  err,
+			}).Error("Problems with select of remaining tenant info - tenant removed!")
+
+			continue
+		}
+		tenantsOk = append(tenantsOk, config.Tenants[i])
+	}
+	return tenantsOk, nil
+
+}
+
+// get tenant usage and hana-user schema information
+func (t *tenantInfo) collectRemainingTenantInfos() error {
+
+	// get tenant usage information
+	row := t.conn.QueryRow("select usage from sys.m_database")
+	err := row.Scan(&t.usage)
+	if err != nil {
+		return err
+	}
+
+	// append sys schema to tenant schemas
+	t.schemas = append(t.schemas, "sys")
+
+	// append remaining user schema privileges
+	rows, err := t.conn.Query("select schema_name from sys.granted_privileges where object_type='SCHEMA' and grantee=$1", strings.ToUpper(t.User))
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var schema string
+		err := rows.Scan(&schema)
+		if err != nil {
+			return err
+		}
+		t.schemas = append(t.schemas, schema)
+	}
+	if err = rows.Err(); err != nil {
+		return err
+	}
+	return nil
+}
+
+// decrypt password
+func getPW(secret internal.Secret, name string) (string, error) {
+
+	// get encrypted tenant pw
+	if _, ok := secret.Name[name]; !ok {
+		return "", errors.New("encrypted tenant pw info does not exist")
+	}
+
+	// decrypt tenant password
+	pw, err := internal.PwDecrypt(secret.Name[name], secret.Name["secretkey"])
+	if err != nil {
+		return "", err
+	}
+	return pw, nil
+}
+
+// true, if slice contains string
+func containsString(str string, slice []string) bool {
+	for _, s := range slice {
+		if strings.EqualFold(s, str) {
+			return true
+		}
+	}
+	return false
+}
+
+// true, if every item in sublice exists in slice or sublice is empty
+func subSliceInSlice(subSlice []string, slice []string) bool {
+	for _, vs := range subSlice {
+		for _, v := range slice {
+			if strings.EqualFold(vs, v) {
+				goto nextCheck
+			}
+		}
+		return false
+	nextCheck:
+	}
+	return true
+}
+
+// return first sublice value that exists in slice
+func firstValueInSlice(subSlice []string, slice []string) string {
+	for _, vs := range subSlice {
+		for _, v := range slice {
+			if strings.EqualFold(vs, v) {
+				return vs
+			}
+		}
+	}
+	return ""
 }

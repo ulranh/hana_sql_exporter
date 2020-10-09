@@ -1,14 +1,16 @@
 module github.com/ulranh/hana_sql_exporter
 
-go 1.14
+go 1.15
 
 require (
-	github.com/BurntSushi/toml v0.3.1
-	github.com/SAP/go-hdb v0.100.14
+	github.com/SAP/go-hdb v0.101.1
 	github.com/golang/protobuf v1.4.2
 	github.com/mitchellh/go-homedir v1.1.0
+	github.com/pelletier/go-toml v1.8.1
 	github.com/pkg/errors v0.9.1
 	github.com/prometheus/client_golang v1.7.1
-	github.com/sirupsen/logrus v1.6.0
-	golang.org/x/crypto v0.0.0-20200820211705-5c72a883971a
+	github.com/sirupsen/logrus v1.7.0
+	github.com/spf13/cobra v1.0.0
+	github.com/spf13/viper v1.7.1
+	golang.org/x/crypto v0.0.0-20201002170205-7f63de1d35b0
 )
