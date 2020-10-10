@@ -65,21 +65,21 @@ var webCmd = &cobra.Command{
 		// fmt.Println("web called")
 		config, err := getConfig()
 		if err != nil {
-			exit("web - getConfig", err)
+			exit("Can't handle config file: ", err)
 		}
 
 		config.timeout, err = cmd.Flags().GetUint("timeout")
 		if err != nil {
-			exit("web - GetUint(timeout)", err)
+			exit("Problem with timeout flag: ", err)
 		}
 		config.port, err = cmd.Flags().GetString("port")
 		if err != nil {
-			exit("web - GetUint(port)", err)
+			exit("Problem with port flag: ", err)
 		}
 
 		err = config.web()
 		if err != nil {
-			exit(" pw - setPw", err)
+			exit("Can't call exporter: ", err)
 		}
 	},
 }
@@ -88,20 +88,10 @@ func init() {
 	RootCmd.AddCommand(webCmd)
 
 	webCmd.PersistentFlags().UintP("timeout", "t", 5, "scrape timeout of the hana_sql_exporter in seconds.")
-	// webCmd.MarkPersistentFlagRequired("timeout")
 	webCmd.PersistentFlags().StringP("port", "p", "9658", "port, the hana_sql_exporter listens to.")
-	// webCmd.MarkPersistentFlagRequired("port")
-	// Here you will define your flags and configuration settings.
-
-	// Cobra supports Persistent Flags which will work for this command
-	// and all subcommands, e.g.:
-	// webCmd.PersistentFlags().String("foo", "", "A help for foo")
-
-	// Cobra supports local flags which will only run when this command
-	// is called directly, e.g.:
-	// webCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
 }
 
+// create new collector
 func newCollector(stats func() []metricData) *collector {
 	return &collector{
 		stats: stats,
@@ -142,7 +132,7 @@ func (config *Config) web() error {
 
 	config.Tenants, err = config.prepare()
 	if err != nil {
-		exit(" preparation of tenants not possible", err)
+		exit("Preparation of tenants not possible: ", err)
 	}
 
 	// close tenant connections at the end
@@ -152,8 +142,6 @@ func (config *Config) web() error {
 
 	stats := func() []metricData {
 		return config.collectMetrics()
-		// data := config.collectMetrics()
-		// return data
 	}
 
 	// start collector
@@ -185,7 +173,7 @@ func (config *Config) web() error {
 	}
 	err = server.ListenAndServe()
 	if err != nil {
-		return errors.Wrap(err, " web - ListenAndServe")
+		return errors.Wrap(err, "web(ListenAndServe)")
 	}
 	return nil
 }
@@ -228,6 +216,7 @@ func (config *Config) collectMetrics() []metricData {
 	return metricsData
 }
 
+// collecting one metric for every tenants
 func (config *Config) collectMetric(mPos int) []metricRecord {
 
 	tenantCnt := len(config.Tenants)
@@ -252,9 +241,7 @@ func (config *Config) collectMetric(mPos int) []metricRecord {
 			if mc != nil {
 				sData = append(sData, mc...)
 			}
-			// fmt.Println("OK", i)
 		case <-ctx.Done():
-			// fmt.Println("TIMEOUT!")
 			return sData
 		}
 	}
@@ -293,12 +280,6 @@ func (config *Config) prepareMetricData(mPos, tPos int) []metricRecord {
 		return nil
 	}
 	sel = strings.ReplaceAll(sel, "<SCHEMA>", schema)
-
-	// if metric is relevant, check connection
-	// err := dbPing(config.Tenants[tPos].Name, config.Tenants[tPos].conn)
-	// if err != nil {
-	// 	return nil
-	// }
 
 	// res, err := config.getMetricData(tPos, sel)
 	res, err := config.Tenants[tPos].getMetricData(sel)
@@ -359,14 +340,14 @@ func (tenant *tenantInfo) getMetricData(sel string) ([]metricRecord, error) {
 		}
 		err = rows.Scan(scanArgs...)
 		if err != nil {
-			return nil, errors.Wrap(err, "GetSqlData - rows.Scan")
+			return nil, errors.Wrap(err, "getMetricData(rows.Scan)")
 		}
 
 		for i, colval := range values {
 
 			// check for NULL value
 			if colval == nil {
-				return nil, errors.Wrap(err, "GetSqlData - colval is null")
+				return nil, errors.Wrap(err, "getMetricData(colval is null)")
 			}
 
 			if 0 == i {
@@ -374,7 +355,7 @@ func (tenant *tenantInfo) getMetricData(sel string) ([]metricRecord, error) {
 				// the first column must be the float value
 				data.value, err = strconv.ParseFloat(string(colval), 64)
 				if err != nil {
-					return nil, errors.Wrap(err, "GetSqlData - first column cannot be converted to float64")
+					return nil, errors.Wrap(err, "getMetricData(ParseFloat - first column cannot be converted to float64)")
 				}
 			} else {
 				data.labels = append(data.labels, strings.ToLower(cols[i]))
@@ -385,7 +366,7 @@ func (tenant *tenantInfo) getMetricData(sel string) ([]metricRecord, error) {
 		md = append(md, data)
 	}
 	if err = rows.Err(); err != nil {
-		return nil, errors.Wrap(err, "GetSqlData - rows")
+		return nil, errors.Wrap(err, "getMetricData(rows)")
 	}
 	return md, nil
 }
@@ -393,15 +374,7 @@ func (tenant *tenantInfo) getMetricData(sel string) ([]metricRecord, error) {
 // add missing information to tenant struct
 func (config *Config) prepare() ([]tenantInfo, error) {
 
-	// var err error
 	var tenantsOk []tenantInfo
-
-	// add timeout value to config struct
-	// config.timeout, err = strconv.ParseUint(*flags["timeout"], 10, 0)
-	// if err != nil {
-	// 	fmt.Println(" timeout flag has wrong type", err)
-	// 	os.Exit(1)
-	// }
 
 	// adapt config.Metrics schema filter
 	config.adaptSchemaFilter()
@@ -409,12 +382,12 @@ func (config *Config) prepare() ([]tenantInfo, error) {
 	// unmarshal secret byte array
 	var secret internal.Secret
 	if err := proto.Unmarshal(config.Secret, &secret); err != nil {
-		return nil, errors.Wrap(err, " unable to unmarshal secret")
+		return nil, errors.Wrap(err, "prepare(Unmarshal)")
 	}
 
 	for i := 0; i < len(config.Tenants); i++ {
 
-		pw, err := getPW(secret, strings.ToLower(config.Tenants[i].Name))
+		pw, err := getPw(secret, strings.ToLower(config.Tenants[i].Name))
 		if err != nil {
 			log.WithFields(log.Fields{
 				"tenant": config.Tenants[i].Name,
@@ -453,7 +426,7 @@ func (t *tenantInfo) collectRemainingTenantInfos() error {
 	row := t.conn.QueryRow("select usage from sys.m_database")
 	err := row.Scan(&t.usage)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "collectRemainingTenantInfos(Scan)")
 	}
 
 	// append sys schema to tenant schemas
@@ -462,7 +435,7 @@ func (t *tenantInfo) collectRemainingTenantInfos() error {
 	// append remaining user schema privileges
 	rows, err := t.conn.Query("select schema_name from sys.granted_privileges where object_type='SCHEMA' and grantee=$1", strings.ToUpper(t.User))
 	if err != nil {
-		return err
+		return errors.Wrap(err, "collectRemainingTenantInfos(Query)")
 	}
 	defer rows.Close()
 
@@ -470,30 +443,14 @@ func (t *tenantInfo) collectRemainingTenantInfos() error {
 		var schema string
 		err := rows.Scan(&schema)
 		if err != nil {
-			return err
+			return errors.Wrap(err, "collectRemainingTenantInfos(Scan)")
 		}
 		t.schemas = append(t.schemas, schema)
 	}
 	if err = rows.Err(); err != nil {
-		return err
+		return errors.Wrap(err, "collectRemainingTenantInfos(rows.Err)")
 	}
 	return nil
-}
-
-// decrypt password
-func getPW(secret internal.Secret, name string) (string, error) {
-
-	// get encrypted tenant pw
-	if _, ok := secret.Name[name]; !ok {
-		return "", errors.New("encrypted tenant pw info does not exist")
-	}
-
-	// decrypt tenant password
-	pw, err := internal.PwDecrypt(secret.Name[name], secret.Name["secretkey"])
-	if err != nil {
-		return "", err
-	}
-	return pw, nil
 }
 
 // true, if slice contains string

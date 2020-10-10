@@ -38,48 +38,40 @@ var pwCmd = &cobra.Command{
 
 		config, err := getConfig()
 		if err != nil {
-			exit(" pw - getConfig", err)
+			exit("Can't handle config file: ", err)
 		}
 
 		err = config.setPw(cmd)
 		if err != nil {
-			exit(" pw - setPw", err)
+			exit("Can't set password: ", err)
 		}
 	},
 }
 
 func init() {
 	RootCmd.AddCommand(pwCmd)
-	// Here you will define your flags and configuration settings.
-
-	// Cobra supports Persistent Flags which will work for this command
-	// and all subcommands, e.g.:
-	// pwCmd.PersistentFlags().String("foo", "", "A help for foo")
 
 	pwCmd.PersistentFlags().StringP("tenant", "t", "", "name(s) of tenant(s) separated by comma")
 	pwCmd.MarkPersistentFlagRequired("tenant")
-	// Cobra supports local flags which will only run when this command
-	// is called directly, e.g.:
-	// pwCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
 }
 
-// save password(s) of tenant(s) database user
+// save password(s) of tenant(s) database user to the config file
 func (config *Config) setPw(cmd *cobra.Command) error {
 
 	fmt.Print("Password: ")
 	pw, err := terminal.ReadPassword(0)
 	if err != nil {
-		return errors.Wrap(err, " pw - ReadPassword")
+		return errors.Wrap(err, "setPw(ReadPassword)")
 	}
 
 	tenants, err := cmd.Flags().GetString("tenant")
 	if err != nil {
-		return errors.Wrap(err, " setPw - GetString(tenant)")
+		return errors.Wrap(err, "setPw(GetString)")
 	}
 
 	err = config.newSecret(tenants, pw)
 	if err != nil {
-		return errors.Wrap(err, " pw - newSecret")
+		return errors.Wrap(err, "setPw(newSecret)")
 	}
 
 	return nil
@@ -92,7 +84,7 @@ func (config *Config) newSecret(tenants string, pw []byte) error {
 	// fill map with existing secrets from configfile
 	var secret internal.Secret
 	if err = proto.Unmarshal(config.Secret, &secret); err != nil {
-		return errors.Wrap(err, " tenant  - Unmarshal")
+		return errors.Wrap(err, "newSecret(Unmarshal)")
 	}
 
 	// create secret key once if it doesn't exist
@@ -101,23 +93,26 @@ func (config *Config) newSecret(tenants string, pw []byte) error {
 		secret.Name = make(map[string][]byte)
 		secret.Name["secretkey"], err = internal.GetSecretKey()
 		if err != nil {
-			return errors.Wrap(err, "passwd - getPassword")
+			return errors.Wrap(err, "newSecret(getSecretKey)")
 		}
 	}
 
+	// encrypt password
 	encPw, err := internal.PwEncrypt(pw, secret.Name["secretkey"])
 	if err != nil {
-		return errors.Wrap(err, "newSecret - PwEncrypt ")
+		return errors.Wrap(err, "newSecret(PwEncrypt)")
 	}
 
+	// determine the tenants specified in the command line
 	tMap := make(map[string]bool)
 	for _, tenant := range strings.Split(tenants, ",") {
 		tMap[strings.ToLower(tenant)] = false
 	}
+
 	for _, tenant := range config.Tenants {
 		tName := strings.ToLower(tenant.Name)
 
-		// check if pw system exists in configfile system slice
+		// check if cmd line tenant exists in configfile tenants slice
 		if _, ok := tMap[tName]; !ok {
 			continue
 		}
@@ -143,15 +138,33 @@ func (config *Config) newSecret(tenants string, pw []byte) error {
 		}
 	}
 
+	// write pw information back to the config file
 	config.Secret, err = proto.Marshal(&secret)
 	if err != nil {
-		return errors.Wrap(err, " newSecret - Marshal")
+		return errors.Wrap(err, "newSecret(Marshal)")
 	}
 	viper.Set("secret", config.Secret)
+
 	err = viper.WriteConfig()
 	if err != nil {
-		return errors.Wrap(err, " newSecret - WriteConfig")
+		return errors.Wrap(err, "newSecret(WriteConfig)")
 	}
 
 	return nil
+}
+
+// decrypt password
+func getPw(secret internal.Secret, name string) (string, error) {
+
+	// get encrypted tenant pw
+	if _, ok := secret.Name[name]; !ok {
+		return "", errors.New("encrypted tenant pw info does not exist")
+	}
+
+	// decrypt tenant password
+	pw, err := internal.PwDecrypt(secret.Name[name], secret.Name["secretkey"])
+	if err != nil {
+		return "", errors.Wrap(err, "getPW(PwDecrypt)")
+	}
+	return pw, nil
 }

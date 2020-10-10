@@ -16,7 +16,7 @@ func GetSecretKey() ([]byte, error) {
 	key := make([]byte, 32)
 	rand.Seed(time.Now().UnixNano())
 	if _, err := rand.Read(key); err != nil {
-		return nil, errors.Wrap(err, "passwd - getPassword")
+		return nil, errors.Wrap(err, "GetSecretKey(rand.Read)")
 	}
 
 	return key, nil
@@ -30,12 +30,10 @@ func PwEncrypt(bytePw, byteSecret []byte) ([]byte, error) {
 
 	var nonce [24]byte
 	if _, err := io.ReadFull(crypt.Reader, nonce[:]); err != nil {
-		return nil, errors.Wrap(err, "secret - ReadFull")
+		return nil, errors.Wrap(err, "PwEncrypt(ReadFull)")
 	}
 
 	return secretbox.Seal(nonce[:], bytePw, &nonce, &secretKey), nil
-
-	// return encrypted, nil
 }
 
 // PwDecrypt - decrypt tenant password
@@ -48,7 +46,7 @@ func PwDecrypt(encrypted, byteSecret []byte) (string, error) {
 	copy(decryptNonce[:], encrypted[:24])
 	decrypted, ok := secretbox.Open(nil, encrypted[24:], &decryptNonce, &secretKey)
 	if !ok {
-		return "", errors.New("secret - decryption ")
+		return "", errors.New("PwDecrypt(secretbox.Open)")
 	}
 
 	return string(decrypted), nil

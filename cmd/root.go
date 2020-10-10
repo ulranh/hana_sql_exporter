@@ -74,8 +74,7 @@ var RootCmd = &cobra.Command{
 // This is called by main.main(). It only needs to happen once to the rootCmd.
 func Execute() {
 	if err := RootCmd.Execute(); err != nil {
-		fmt.Println(err)
-		os.Exit(1)
+		exit("RootCmd can't be executed: ", err)
 	}
 }
 
@@ -101,8 +100,7 @@ func initConfig() {
 		// Find home directory.
 		home, err := homedir.Dir()
 		if err != nil {
-			fmt.Println(err)
-			os.Exit(1)
+			exit("Homedir can't be found: ", err)
 		}
 
 		// Search config in home directory with name ".hana_sql_exporter" (without extension).
@@ -115,20 +113,22 @@ func initConfig() {
 
 }
 
+// read and unmarshal configfile into Config struct
 func getConfig() (*Config, error) {
 	var config Config
 
 	// If a config file is found, read it in.
 	if err := viper.ReadInConfig(); err != nil {
-		return nil, errors.Wrap(err, " unable to read config file")
+		return nil, errors.Wrap(err, "getConfig(ReadInConfig)")
 	}
 
 	if err := viper.Unmarshal(&config); err != nil {
-		return nil, errors.Wrap(err, " unable to unmarshal config file")
+		return nil, errors.Wrap(err, "getConfig(Unarshal)")
 	}
 	return &config, nil
 }
 
+// exit program with error message
 func exit(msg string, err error) {
 	fmt.Println(msg, err)
 	os.Exit(1)
@@ -144,7 +144,7 @@ func (config *Config) adaptSchemaFilter() {
 	}
 }
 
-// connect to database
+// connect to hana database
 func dbConnect(connStr, user, pw string) *sql.DB {
 
 	connector, err := goHdbDriver.NewDSNConnector("hdb://" + user + ":" + pw + "@" + connStr)

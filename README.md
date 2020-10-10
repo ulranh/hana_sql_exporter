@@ -111,7 +111,7 @@ $ ./hana_sql_exporter web --config ./hana_sql_exporter.toml --timeout 3
 #### Docker
 The Docker image can be downloaded from Docker Hub or built with the Dockerfile. Then it can be started as follows:
 ```
-$ docker run -d --name=hana_exporter --restart=always -p 9658:9658 -v /home/<user>/.hana_sql_exporter.toml:/app/.hana_sql_exporter.toml \<image name\>
+$ docker run -d --name=hana_exporter --restart=always -p 9658:9658 -v /home/<user>/.hana_sql_exporter.toml:/app/.hana_sql_exporter.toml <image name>
 ```
 #### Kubernetes
 An example config can be found in the examples folder. First of all create a sap namespace. Then apply the created configfile as configmap and start the deployment:
