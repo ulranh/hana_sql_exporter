@@ -62,7 +62,6 @@ var webCmd = &cobra.Command{
 	hana_sql_exporter web
 	hana_sql_exporter web --config ./hana_sql_exporter.toml`,
 	Run: func(cmd *cobra.Command, args []string) {
-		// fmt.Println("web called")
 		config, err := getConfig()
 		if err != nil {
 			exit("Can't handle config file: ", err)

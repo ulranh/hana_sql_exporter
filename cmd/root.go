@@ -1,4 +1,4 @@
-// Copyright © 2020 NAME HERE <EMAIL ADDRESS>
+// Copyright © 2020 Ulrich Anhalt <ulrich.anhalt@gmail.com>
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -81,14 +81,8 @@ func Execute() {
 func init() {
 	cobra.OnInitialize(initConfig)
 
-	// Here you will define your flags and configuration settings.
-	// Cobra supports persistent flags, which, if defined here,
-	// will be global for your application.
 	RootCmd.PersistentFlags().StringVarP(&cfgFile, "config", "c", "", "config file (default is $HOME/.hana_sql_exporter.toml)")
 
-	// Cobra also supports local flags, which will only run
-	// when this action is called directly.
-	// RootCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
 }
 
 // initConfig reads in config file and ENV variables if set.
