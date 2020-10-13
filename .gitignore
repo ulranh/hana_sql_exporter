@@ -5,6 +5,7 @@ hana_sql_exporter
 
 # configfile tests in root folder
 /hana_sql_exporter.*
+/.hana_sql_exporter.*
 
 # Binaries for programs and plugins
 *.exe
