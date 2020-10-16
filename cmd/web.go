@@ -234,7 +234,6 @@ func (config *Config) collectMetric(mPos int) []metricRecord {
 			case metricC <- config.prepareMetricData(mPos, tPos):
 			case <-ctx.Done():
 				return
-			default:
 			}
 		}(tPos)
 	}
