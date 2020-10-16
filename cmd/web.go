@@ -228,7 +228,14 @@ func (config *Config) collectMetric(mPos int) []metricRecord {
 	for tPos := range config.Tenants {
 
 		go func(tPos int) {
-			metricC <- config.prepareMetricData(mPos, tPos)
+
+			select {
+			// case metricC <- config.prepareMetricData(ctx, mPos, tPos):
+			case metricC <- config.prepareMetricData(mPos, tPos):
+			case <-ctx.Done():
+				return
+			default:
+			}
 		}(tPos)
 	}
 
@@ -251,7 +258,7 @@ func (config *Config) collectMetric(mPos int) []metricRecord {
 func (config *Config) prepareMetricData(mPos, tPos int) []metricRecord {
 
 	// !!!!!!!!!!!!!!!
-	// t := rand.Intn(5)
+	// t := rand.Intn(7)
 	// time.Sleep(time.Duration(t) * time.Second)
 
 	// all values of metrics tag filter must be in tenants tags, otherwise the
@@ -280,7 +287,7 @@ func (config *Config) prepareMetricData(mPos, tPos int) []metricRecord {
 	}
 	sel = strings.ReplaceAll(sel, "<SCHEMA>", schema)
 
-	// res, err := config.getMetricData(tPos, sel)
+	// res, err := config.Tenants[tPos].getMetricData(ctx, sel)
 	res, err := config.Tenants[tPos].getMetricData(sel)
 	if err != nil {
 		log.WithFields(log.Fields{
@@ -293,35 +300,87 @@ func (config *Config) prepareMetricData(mPos, tPos int) []metricRecord {
 	return res
 }
 
+// // filter out not associated tenants
+// func (config *Config) prepareMetricData1111(ctx context.Context, mPos, tPos int) []metricRecord {
+
+// 	// !!!!!!!!!!!!!!!
+// 	// t := rand.Intn(5)
+// 	// time.Sleep(time.Duration(t) * time.Second)
+
+// 	// all values of metrics tag filter must be in tenants tags, otherwise the
+// 	// metric is not relevant for the tenant
+// 	if !subSliceInSlice(config.Metrics[mPos].TagFilter, config.Tenants[tPos].Tags) {
+// 		return nil
+// 	}
+
+// 	sel := strings.TrimSpace(config.Metrics[mPos].SQL)
+// 	if !strings.EqualFold(sel[0:6], "select") {
+// 		log.WithFields(log.Fields{
+// 			"metric": config.Metrics[mPos].Name,
+// 			"tenant": config.Tenants[tPos].Name,
+// 		}).Error("Only selects are allowed")
+// 		return nil
+// 	}
+
+// 	// metrics schema filter must include a tenant schema
+// 	var schema string
+// 	if schema = firstValueInSlice(config.Metrics[mPos].SchemaFilter, config.Tenants[tPos].schemas); 0 == len(schema) {
+// 		log.WithFields(log.Fields{
+// 			"metric": config.Metrics[mPos].Name,
+// 			"tenant": config.Tenants[tPos].Name,
+// 		}).Error("SchemaFilter value in toml file is missing")
+// 		return nil
+// 	}
+// 	sel = strings.ReplaceAll(sel, "<SCHEMA>", schema)
+
+// 	res, err := config.Tenants[tPos].getMetricData(ctx, sel)
+// 	if err != nil {
+// 		log.WithFields(log.Fields{
+// 			"metric": config.Metrics[mPos].Name,
+// 			"tenant": config.Tenants[tPos].Name,
+// 			"error":  err,
+// 		}).Error("Can't get sql result for metric")
+// 		return nil
+// 	}
+// 	return res
+// }
+
 // get metric data for one tenant
 func (tenant *tenantInfo) getMetricData(sel string) ([]metricRecord, error) {
 	var err error
 
 	var rows *sql.Rows
 
+	// log.Println("jojo: ", tenant.conn.Conn())
+	// conn, err := tenant.conn.Conn(ctx)
+	// if err != nil {
+	// 	return nil, errors.Wrap(err, "getMetricData(conn.Conn)")
+	// }
+	// defer conn.Close()
+
 	rows, err = tenant.conn.Query(sel)
 	if err != nil {
-		return nil, errors.Wrap(err, "GetSqlData - query")
+		return nil, errors.Wrap(err, "getMetricData(conn.QueryContext)")
 	}
 	defer rows.Close()
 
 	cols, err := rows.Columns()
 	if err != nil {
-		return nil, errors.Wrap(err, "GetSqlData - columns")
+		return nil, errors.Wrap(err, "getMetricData(rows.Columns)")
 	}
 
 	if len(cols) < 1 {
-		return nil, errors.Wrap(err, "GetSqlData - no columns")
+		return nil, errors.New("getMetricData(no columns)")
 	}
 
 	// first column must not be string
 	colt, err := rows.ColumnTypes()
 	if err != nil {
-		return nil, errors.Wrap(err, "GetSqlData - columnTypes")
+		return nil, errors.Wrap(err, "getMetricData(rows.ColumnTypes)")
 	}
 	switch colt[0].ScanType().Name() {
 	case "string", "bool", "":
-		return nil, errors.New("GetSqlData - first column must be numeric")
+		return nil, errors.New("getMetricData(first column must be numeric)")
 	default:
 	}
 
