@@ -107,7 +107,7 @@ The default port is 9658 which can be changed with the -port flag. The standard 
 ```
 $ ./hana_sql_exporter web --config ./hana_sql_exporter.toml --timeout 3
 ```
-Then you should be able to find the desired metrics after calling ``localhost:9663/metrics`` in the browser.
+Then you should be able to find the desired metrics after calling ``localhost:9658/metrics`` in the browser.
 
 #### Docker
 The Docker image can be downloaded from Docker Hub or built with the Dockerfile. Then it can be started as follows:
