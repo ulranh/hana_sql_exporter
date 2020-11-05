@@ -37,13 +37,13 @@ The file contains a Tenants slice followed by a Metrics Slice:
 [[Tenants]]
   Name = "q01"
   Tags = ["abap", "ewm"]
-  ConnString = "hanaq01.example.com:32041"
+  ConnStr = "hanaq01.example.com:32041"
   User = "dbuser1"
 
 [[Tenants]]
   Name = "q02"
   Tags = ["abap", "erp"]
-  ConnString = "hanaqj1.example.com:31044"
+  ConnStr = "hanaqj1.example.com:31044"
   User = "dbuser2"
 
 [[Metrics]]
@@ -71,7 +71,7 @@ Below is a description of the tenant and metric struct fields:
 | ---------- | ------------ |------------ | ------- |
 | Name       | string       | SAP Hana tenant name | "P01", "q02" |
 | Tags       | string array | Tags describing the system | ["abap", "erp"], ["systemdb"], ["java"] |
-| ConnString | string       | Connection string \<hostname\>:\<tenant sql port\> - the sql port can be selected in the following way on the system db: "select database_name,sql_port from sys_databases.m_services"  | "host.domain:31041" | 
+| ConnStr | string       | Connection string \<hostname\>:\<tenant sql port\> - the sql port can be selected in the following way on the system db: "select database_name,sql_port from sys_databases.m_services"  | "host.domain:31041" | 
 | User       | string       | Tenant database user name | |
 
 #### Metric information
