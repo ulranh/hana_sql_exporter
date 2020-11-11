@@ -167,8 +167,8 @@ func (config *Config) web() error {
 	server := &http.Server{
 		Addr:         ":" + config.port,
 		Handler:      mux,
-		WriteTimeout: 10 * time.Second,
-		ReadTimeout:  10 * time.Second,
+		WriteTimeout: time.Duration(config.timeout+2) * time.Second,
+		ReadTimeout:  time.Duration(config.timeout+2) * time.Second,
 	}
 	err = server.ListenAndServe()
 	if err != nil {
