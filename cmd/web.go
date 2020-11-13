@@ -21,7 +21,6 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/golang/protobuf/proto"
@@ -184,57 +183,71 @@ func rootHandler(w http.ResponseWriter, r *http.Request) {
 // collecting all metrics and fetch the results
 func (config *Config) collectMetrics() []metricData {
 
-	var wg sync.WaitGroup
+	// var wg sync.WaitGroup
 
-	metricsC := make(chan metricData, len(config.Metrics))
-	for mPos := range config.Metrics {
-
-		wg.Add(1)
-		go func(mPos int) {
-
-			defer wg.Done()
-			metricsC <- metricData{
-				name:       config.Metrics[mPos].Name,
-				help:       config.Metrics[mPos].Help,
-				metricType: config.Metrics[mPos].MetricType,
-				stats:      config.collectMetric(mPos),
-			}
-		}(mPos)
-	}
-
-	go func() {
-		wg.Wait()
-		close(metricsC)
-	}()
-
-	var metricsData []metricData
-	for metric := range metricsC {
-		metricsData = append(metricsData, metric)
-	}
-
-	return metricsData
-}
-
-// collecting one metric for every tenants
-func (config *Config) collectMetric(mPos int) []metricRecord {
-
-	tenantCnt := len(config.Tenants)
-	metricC := make(chan []metricRecord, tenantCnt)
+	metricCnt := len(config.Metrics)
+	metricsC := make(chan metricData, metricCnt)
 
 	// set timeout
 	ctx, cancel := context.WithDeadline(context.Background(), time.Now().Add(time.Duration(config.timeout)*time.Second))
 	defer cancel()
 
+	for mPos := range config.Metrics {
+
+		// wg.Add(1)
+		go func(mPos int) {
+
+			// defer wg.Done()
+			metricsC <- metricData{
+				name:       config.Metrics[mPos].Name,
+				help:       config.Metrics[mPos].Help,
+				metricType: config.Metrics[mPos].MetricType,
+				stats:      config.collectMetric(ctx, mPos),
+			}
+		}(mPos)
+	}
+
+	// go func() {
+	// 	wg.Wait()
+	// 	close(metricsC)
+	// }()
+
+	var metricsData []metricData
+	for i := 0; i < metricCnt; i++ {
+		select {
+		case mc := <-metricsC:
+			// if mc != metricData{} {
+			metricsData = append(metricsData, mc)
+			// sData = append(sData, mc...)
+			// }
+		case <-ctx.Done():
+			return metricsData
+		}
+	}
+	// for metric := range metricsC {
+	// 	metricsData = append(metricsData, metric)
+	// }
+
+	return metricsData
+}
+
+// collecting one metric for every tenants
+func (config *Config) collectMetric(ctx context.Context, mPos int) []metricRecord {
+
+	tenantCnt := len(config.Tenants)
+	metricC := make(chan []metricRecord, tenantCnt)
+
 	for tPos := range config.Tenants {
 
 		go func(tPos int) {
 
-			select {
-			// case metricC <- config.prepareMetricData(ctx, mPos, tPos):
-			case metricC <- config.prepareMetricData(mPos, tPos):
-			case <-ctx.Done():
-				return
-			}
+			metricC <- config.prepareMetricData(mPos, tPos)
+			// select {
+			// // case metricC <- config.prepareMetricData(ctx, mPos, tPos):
+			// case metricC <- config.prepareMetricData(mPos, tPos):
+			// case <-ctx.Done():
+			// 	return
+			// }
 		}(tPos)
 	}
 
