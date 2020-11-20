@@ -183,8 +183,6 @@ func rootHandler(w http.ResponseWriter, r *http.Request) {
 // collecting all metrics and fetch the results
 func (config *Config) collectMetrics() []metricData {
 
-	// var wg sync.WaitGroup
-
 	metricCnt := len(config.Metrics)
 	metricsC := make(chan metricData, metricCnt)
 
@@ -194,10 +192,8 @@ func (config *Config) collectMetrics() []metricData {
 
 	for mPos := range config.Metrics {
 
-		// wg.Add(1)
 		go func(mPos int) {
 
-			// defer wg.Done()
 			metricsC <- metricData{
 				name:       config.Metrics[mPos].Name,
 				help:       config.Metrics[mPos].Help,
@@ -207,26 +203,15 @@ func (config *Config) collectMetrics() []metricData {
 		}(mPos)
 	}
 
-	// go func() {
-	// 	wg.Wait()
-	// 	close(metricsC)
-	// }()
-
 	var metricsData []metricData
 	for i := 0; i < metricCnt; i++ {
 		select {
 		case mc := <-metricsC:
-			// if mc != metricData{} {
 			metricsData = append(metricsData, mc)
-			// sData = append(sData, mc...)
-			// }
 		case <-ctx.Done():
 			return metricsData
 		}
 	}
-	// for metric := range metricsC {
-	// 	metricsData = append(metricsData, metric)
-	// }
 
 	return metricsData
 }
