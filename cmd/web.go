@@ -21,6 +21,7 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/golang/protobuf/proto"
@@ -183,41 +184,44 @@ func rootHandler(w http.ResponseWriter, r *http.Request) {
 // collecting all metrics and fetch the results
 func (config *Config) collectMetrics() []metricData {
 
+	var wg sync.WaitGroup
 	metricCnt := len(config.Metrics)
 	metricsC := make(chan metricData, metricCnt)
 
-	// set timeout
-	ctx, cancel := context.WithDeadline(context.Background(), time.Now().Add(time.Duration(config.timeout)*time.Second))
-	defer cancel()
-
 	for mPos := range config.Metrics {
 
+		wg.Add(1)
 		go func(mPos int) {
 
+			defer wg.Done()
 			metricsC <- metricData{
 				name:       config.Metrics[mPos].Name,
 				help:       config.Metrics[mPos].Help,
 				metricType: config.Metrics[mPos].MetricType,
-				stats:      config.collectMetric(ctx, mPos),
+				stats:      config.collectMetric(mPos),
 			}
 		}(mPos)
 	}
 
+	go func() {
+		wg.Wait()
+		close(metricsC)
+	}()
+
 	var metricsData []metricData
-	for i := 0; i < metricCnt; i++ {
-		select {
-		case mc := <-metricsC:
-			metricsData = append(metricsData, mc)
-		case <-ctx.Done():
-			return metricsData
-		}
+	for metric := range metricsC {
+		metricsData = append(metricsData, metric)
 	}
 
 	return metricsData
 }
 
 // collecting one metric for every tenants
-func (config *Config) collectMetric(ctx context.Context, mPos int) []metricRecord {
+func (config *Config) collectMetric(mPos int) []metricRecord {
+
+	// set timeout
+	ctx, cancel := context.WithDeadline(context.Background(), time.Now().Add(time.Duration(config.timeout)*time.Second))
+	defer cancel()
 
 	tenantCnt := len(config.Tenants)
 	metricC := make(chan []metricRecord, tenantCnt)
