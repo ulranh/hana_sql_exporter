@@ -1,4 +1,4 @@
-package internal
+package cmd
 
 import (
 	"math/rand"

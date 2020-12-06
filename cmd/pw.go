@@ -15,8 +15,12 @@
 package cmd
 
 import (
+	crypt "crypto/rand"
 	"fmt"
+	"io"
+	"math/rand"
 	"strings"
+	"time"
 
 	"github.com/golang/protobuf/proto"
 	"github.com/pkg/errors"
@@ -24,6 +28,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"github.com/ulranh/hana_sql_exporter/internal"
+	"golang.org/x/crypto/nacl/secretbox"
 	"golang.org/x/crypto/ssh/terminal"
 )
 
@@ -91,51 +96,40 @@ func (config *Config) newSecret(tenants string, pw []byte) error {
 	if _, ok := secret.Name["secretkey"]; !ok {
 
 		secret.Name = make(map[string][]byte)
-		secret.Name["secretkey"], err = internal.GetSecretKey()
+		secret.Name["secretkey"], err = getSecretKey()
 		if err != nil {
 			return errors.Wrap(err, "newSecret(getSecretKey)")
 		}
 	}
 
 	// encrypt password
-	encPw, err := internal.PwEncrypt(pw, secret.Name["secretkey"])
+	encPw, err := pwEncrypt(pw, secret.Name["secretkey"])
 	if err != nil {
 		return errors.Wrap(err, "newSecret(PwEncrypt)")
 	}
 
-	// determine the tenants specified in the command line
-	tMap := make(map[string]bool)
 	for _, tenant := range strings.Split(tenants, ",") {
-		tMap[strings.ToLower(tenant)] = false
-	}
+		tenant := strings.ToLower(tenant)
 
-	for _, tenant := range config.Tenants {
-		tName := strings.ToLower(tenant.Name)
-
-		// check if cmd line tenant exists in configfile tenants slice
-		if _, ok := tMap[tName]; !ok {
-			continue
+		// check, if cmd line tenant exists in configfile
+		tInfo := config.findTenant(tenant)
+		if "" == tInfo.Name {
+			log.WithFields(log.Fields{
+				"tenant": tenant,
+			}).Error("missing tenant")
+			return errors.New("Did not find tenant in configfile tenants slice.")
 		}
-		tMap[tName] = true
 
 		// connection test
-		db := dbConnect(tenant.ConnStr, tenant.User, string(pw))
+		db := dbConnect(tInfo.ConnStr, tInfo.User, string(pw))
 		defer db.Close()
 
-		if err := dbPing(tName, db); err != nil {
+		if err := dbPing(tenant, db); err != nil {
 			continue
 		}
 
 		// add password to secret map
-		secret.Name[tName] = encPw
-	}
-
-	for k, v := range tMap {
-		if !v {
-			log.WithFields(log.Fields{
-				"tenant": k,
-			}).Error("Did not find tenant in configfile tenants slice.")
-		}
+		secret.Name[tenant] = encPw
 	}
 
 	// write pw information back to the config file
@@ -153,7 +147,17 @@ func (config *Config) newSecret(tenants string, pw []byte) error {
 	return nil
 }
 
-// decrypt password
+// findTenant - check if cmpTenant already exists in configfile
+func (config *Config) findTenant(cmpTenant string) tenantInfo {
+	for _, tenant := range config.Tenants {
+		if strings.ToLower(tenant.Name) == cmpTenant {
+			return tenant
+		}
+	}
+	return tenantInfo{}
+}
+
+// getPw - decrypt password
 func getPw(secret internal.Secret, name string) (string, error) {
 
 	// get encrypted tenant pw
@@ -162,9 +166,51 @@ func getPw(secret internal.Secret, name string) (string, error) {
 	}
 
 	// decrypt tenant password
-	pw, err := internal.PwDecrypt(secret.Name[name], secret.Name["secretkey"])
+	pw, err := pwDecrypt(secret.Name[name], secret.Name["secretkey"])
 	if err != nil {
 		return "", errors.Wrap(err, "getPW(PwDecrypt)")
 	}
 	return pw, nil
+}
+
+// GetSecretKey - create secret key once
+func getSecretKey() ([]byte, error) {
+
+	key := make([]byte, 32)
+	rand.Seed(time.Now().UnixNano())
+	if _, err := rand.Read(key); err != nil {
+		return nil, errors.Wrap(err, "GetSecretKey(rand.Read)")
+	}
+
+	return key, nil
+}
+
+// PwEncrypt - encrypt tenant password
+func pwEncrypt(bytePw, byteSecret []byte) ([]byte, error) {
+
+	var secretKey [32]byte
+	copy(secretKey[:], byteSecret)
+
+	var nonce [24]byte
+	if _, err := io.ReadFull(crypt.Reader, nonce[:]); err != nil {
+		return nil, errors.Wrap(err, "PwEncrypt(ReadFull)")
+	}
+
+	return secretbox.Seal(nonce[:], bytePw, &nonce, &secretKey), nil
+}
+
+// PwDecrypt - decrypt tenant password
+func pwDecrypt(encrypted, byteSecret []byte) (string, error) {
+
+	var secretKey [32]byte
+	copy(secretKey[:], byteSecret)
+
+	var decryptNonce [24]byte
+	copy(decryptNonce[:], encrypted[:24])
+	decrypted, ok := secretbox.Open(nil, encrypted[24:], &decryptNonce, &secretKey)
+	if !ok {
+		return "", errors.New("PwDecrypt(secretbox.Open)")
+	}
+
+	return string(decrypted), nil
 }
