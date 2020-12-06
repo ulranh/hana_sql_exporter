@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	log "github.com/sirupsen/logrus"
+	"github.com/ulranh/hana_sql_exporter/internal"
 )
 
 // ensure set/get of normal byte values is possible.
@@ -15,29 +15,28 @@ func Test_PwEncryptDecrypt(t *testing.T) {
 	secretkey := make([]byte, 32)
 	rand.Seed(time.Now().UnixNano())
 	_, err := rand.Read(secretkey)
-	Ok(t, err)
+	internal.Ok(t, err)
 
 	// encrypt
 	pw := "123456"
-	encrypted, err := PwEncrypt([]byte(pw), secretkey)
-	Ok(t, err)
+	encrypted, err := pwEncrypt([]byte(pw), secretkey)
+	internal.Ok(t, err)
 
 	// decrypt
-	decrypted, err := PwDecrypt(encrypted, secretkey)
-	Ok(t, err)
+	decrypted, err := pwDecrypt(encrypted, secretkey)
+	internal.Ok(t, err)
 
-	Equals(t, decrypted, pw)
+	internal.Equals(t, decrypted, pw)
 }
 
 func Test_SecretKey(t *testing.T) {
-	sk1, err := GetSecretKey()
-	Ok(t, err)
+	sk1, err := getSecretKey()
+	internal.Ok(t, err)
 
-	sk2, err := GetSecretKey()
-	Ok(t, err)
+	sk2, err := getSecretKey()
+	internal.Ok(t, err)
 
-	log.Println(len(sk2))
-	Equals(t, len(sk1), 32)
-	Equals(t, len(sk2), 32)
-	Assert(t, string(sk1) != string(sk2), "values should not be equal")
+	internal.Equals(t, len(sk1), 32)
+	internal.Equals(t, len(sk2), 32)
+	internal.Assert(t, string(sk1) != string(sk2), "values should not be equal")
 }
