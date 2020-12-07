@@ -145,7 +145,7 @@ func dbConnect(connStr, user, pw string) *sql.DB {
 	if err != nil {
 		log.Fatal(err)
 	}
-	connector.SetTimeout(10)
+	// connector.SetTimeout(10)
 
 	db := sql.OpenDB(connector)
 	db.SetMaxOpenConns(25)
