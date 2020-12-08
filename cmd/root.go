@@ -117,8 +117,9 @@ func getConfig() (*Config, error) {
 	}
 
 	if err := viper.Unmarshal(&config); err != nil {
-		return nil, errors.Wrap(err, "getConfig(Unarshal)")
+		return nil, errors.Wrap(err, "getConfig(Unmarshal)")
 	}
+
 	return &config, nil
 }
 

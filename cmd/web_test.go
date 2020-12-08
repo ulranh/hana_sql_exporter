@@ -3,7 +3,7 @@ package cmd
 import (
 	"testing"
 
-	"github.com/ulranh/hana_sql_exporter/internal"
+	"github.com/stretchr/testify/assert"
 )
 
 func Test_firstValueInSclice(t *testing.T) {
@@ -13,11 +13,11 @@ func Test_firstValueInSclice(t *testing.T) {
 	slice3 := []string{}
 
 	s := firstValueInSlice(slice1, slice)
-	internal.Equals(t, s, "s1")
+	assert.Equal(t, s, "s1")
 	s = firstValueInSlice(slice2, slice)
-	internal.Equals(t, s, "s2")
+	assert.Equal(t, s, "s2")
 	s = firstValueInSlice(slice3, slice)
-	internal.Equals(t, s, "")
+	assert.Equal(t, s, "")
 }
 
 func Test_subSliceInSlice(t *testing.T) {
@@ -29,24 +29,24 @@ func Test_subSliceInSlice(t *testing.T) {
 	slice5 := []string{}
 
 	b := subSliceInSlice(slice1, slice)
-	internal.Equals(t, b, true)
+	assert.Equal(t, b, true)
 	b = subSliceInSlice(slice2, slice)
-	internal.Equals(t, b, true)
+	assert.Equal(t, b, true)
 	b = subSliceInSlice(slice3, slice)
-	internal.Equals(t, b, false)
+	assert.Equal(t, b, false)
 	b = subSliceInSlice(slice4, slice)
-	internal.Equals(t, b, false)
+	assert.Equal(t, b, false)
 	b = subSliceInSlice(slice5, slice)
-	internal.Equals(t, b, true)
+	assert.Equal(t, b, true)
 }
 
 func Test_containsString(t *testing.T) {
 	slice := []string{"S1", "s2", "S3", "s4"}
 
 	b := containsString("s3", slice)
-	internal.Equals(t, b, true)
+	assert.Equal(t, b, true)
 	b = containsString("s5", slice)
-	internal.Equals(t, b, false)
+	assert.Equal(t, b, false)
 	b = containsString("", slice)
-	internal.Equals(t, b, false)
+	assert.Equal(t, b, false)
 }

@@ -24,13 +24,11 @@ import (
 	"sync"
 	"time"
 
-	"github.com/golang/protobuf/proto"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
-	"github.com/ulranh/hana_sql_exporter/internal"
 )
 
 type collector struct {
@@ -438,15 +436,14 @@ func (config *Config) prepare() ([]tenantInfo, error) {
 	// adapt config.Metrics schema filter
 	config.adaptSchemaFilter()
 
-	// unmarshal secret byte array
-	var secret internal.Secret
-	if err := proto.Unmarshal(config.Secret, &secret); err != nil {
-		return nil, errors.Wrap(err, "prepare(Unmarshal)")
+	secretMap, err := config.getSecretMap()
+	if err != nil {
+		return nil, errors.Wrap(err, "prepare(getSecretMap)")
 	}
 
 	for i := 0; i < len(config.Tenants); i++ {
 
-		pw, err := getPw(secret, strings.ToLower(config.Tenants[i].Name))
+		pw, err := getPw(secretMap, config.Tenants[i].Name)
 		if err != nil {
 			log.WithFields(log.Fields{
 				"tenant": config.Tenants[i].Name,
