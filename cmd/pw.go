@@ -91,19 +91,25 @@ func (config *Config) setPw(cmd *cobra.Command) error {
 	if err != nil {
 		return errors.Wrap(err, "prepare(getSecretMap)")
 	}
-	for _, tenant := range config.Tenants {
-		pw, err := getPw(secretMap, tenant.Name)
-		if err != nil {
-			return errors.Wrap(err, "setPw(getPw)")
+	// for i, tenant := range config.Tenants {
+	for i := range config.Tenants {
+		db := config.getConnection(i, secretMap)
+		if db == nil {
+			continue
 		}
-		db := dbConnect(tenant.ConnStr, tenant.User, pw)
-		defer db.Close()
+		db.Close()
+		// pw, err := getPw(secretMap, tenant.Name)
+		// if err != nil {
+		// 	return errors.Wrap(err, "setPw(getPw)")
+		// }
+		// db := dbConnect(tenant.ConnStr, tenant.User, pw)
+		// defer db.Close()
 
-		if err := dbPing(tenant.Name, db); err != nil {
-			log.WithFields(log.Fields{
-				"tenant": tenant.Name,
-			}).Error("Cannot ping tenant. Perhaps wrong password?")
-		}
+		// if err := dbPing(tenant.Name, db); err != nil {
+		// 	log.WithFields(log.Fields{
+		// 		"tenant": tenant.Name,
+		// 	}).Error("Cannot ping tenant. Perhaps wrong password?")
+		// }
 	}
 
 	return nil

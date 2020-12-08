@@ -299,51 +299,6 @@ func (config *Config) prepareMetricData(mPos, tPos int) []metricRecord {
 	return res
 }
 
-// // filter out not associated tenants
-// func (config *Config) prepareMetricData1111(ctx context.Context, mPos, tPos int) []metricRecord {
-
-// 	// !!!!!!!!!!!!!!!
-// 	// t := rand.Intn(5)
-// 	// time.Sleep(time.Duration(t) * time.Second)
-
-// 	// all values of metrics tag filter must be in tenants tags, otherwise the
-// 	// metric is not relevant for the tenant
-// 	if !subSliceInSlice(config.Metrics[mPos].TagFilter, config.Tenants[tPos].Tags) {
-// 		return nil
-// 	}
-
-// 	sel := strings.TrimSpace(config.Metrics[mPos].SQL)
-// 	if !strings.EqualFold(sel[0:6], "select") {
-// 		log.WithFields(log.Fields{
-// 			"metric": config.Metrics[mPos].Name,
-// 			"tenant": config.Tenants[tPos].Name,
-// 		}).Error("Only selects are allowed")
-// 		return nil
-// 	}
-
-// 	// metrics schema filter must include a tenant schema
-// 	var schema string
-// 	if schema = firstValueInSlice(config.Metrics[mPos].SchemaFilter, config.Tenants[tPos].schemas); 0 == len(schema) {
-// 		log.WithFields(log.Fields{
-// 			"metric": config.Metrics[mPos].Name,
-// 			"tenant": config.Tenants[tPos].Name,
-// 		}).Error("SchemaFilter value in toml file is missing")
-// 		return nil
-// 	}
-// 	sel = strings.ReplaceAll(sel, "<SCHEMA>", schema)
-
-// 	res, err := config.Tenants[tPos].getMetricData(ctx, sel)
-// 	if err != nil {
-// 		log.WithFields(log.Fields{
-// 			"metric": config.Metrics[mPos].Name,
-// 			"tenant": config.Tenants[tPos].Name,
-// 			"error":  err,
-// 		}).Error("Can't get sql result for metric")
-// 		return nil
-// 	}
-// 	return res
-// }
-
 // get metric data for one tenant
 func (tenant *tenantInfo) getMetricData(sel string) ([]metricRecord, error) {
 	var err error
@@ -443,21 +398,25 @@ func (config *Config) prepare() ([]tenantInfo, error) {
 
 	for i := 0; i < len(config.Tenants); i++ {
 
-		pw, err := getPw(secretMap, config.Tenants[i].Name)
-		if err != nil {
-			log.WithFields(log.Fields{
-				"tenant": config.Tenants[i].Name,
-				"error":  err,
-			}).Error("Can't find or decrypt password for tenant - tenant removed!")
-
+		config.Tenants[i].conn = config.getConnection(i, secretMap)
+		if config.Tenants[i].conn == nil {
 			continue
 		}
+		// pw, err := getPw(secretMap, config.Tenants[i].Name)
+		// if err != nil {
+		// 	log.WithFields(log.Fields{
+		// 		"tenant": config.Tenants[i].Name,
+		// 		"error":  err,
+		// 	}).Error("Can't find or decrypt password for tenant - tenant removed!")
 
-		// connect to db tenant
-		config.Tenants[i].conn = dbConnect(config.Tenants[i].ConnStr, config.Tenants[i].User, pw)
-		if err = dbPing(config.Tenants[i].Name, config.Tenants[i].conn); err != nil {
-			continue
-		}
+		// 	continue
+		// }
+
+		// // connect to db tenant
+		// config.Tenants[i].conn = dbConnect(config.Tenants[i].ConnStr, config.Tenants[i].User, pw)
+		// if err = dbPing(config.Tenants[i].Name, config.Tenants[i].conn); err != nil {
+		// 	continue
+		// }
 
 		// get tenant usage and hana-user schema information
 		err = config.Tenants[i].collectRemainingTenantInfos()
@@ -507,6 +466,16 @@ func (t *tenantInfo) collectRemainingTenantInfos() error {
 		return errors.Wrap(err, "collectRemainingTenantInfos(rows.Err)")
 	}
 	return nil
+}
+
+// add sys schema to SchemaFilter if it does not exists
+func (config *Config) adaptSchemaFilter() {
+
+	for mPos := range config.Metrics {
+		if !containsString("sys", config.Metrics[mPos].SchemaFilter) {
+			config.Metrics[mPos].SchemaFilter = append(config.Metrics[mPos].SchemaFilter, "sys")
+		}
+	}
 }
 
 // true, if slice contains string

@@ -26,6 +26,7 @@ import (
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
+	"github.com/ulranh/hana_sql_exporter/internal"
 )
 
 // tenant info
@@ -129,14 +130,25 @@ func exit(msg string, err error) {
 	os.Exit(1)
 }
 
-// add sys schema to SchemaFilter if it does not exists
-func (config *Config) adaptSchemaFilter() {
+func (config *Config) getConnection(id int, secretMap internal.Secret) *sql.DB {
 
-	for mPos := range config.Metrics {
-		if !containsString("sys", config.Metrics[mPos].SchemaFilter) {
-			config.Metrics[mPos].SchemaFilter = append(config.Metrics[mPos].SchemaFilter, "sys")
-		}
+	pw, err := getPw(secretMap, config.Tenants[id].Name)
+	if err != nil {
+		log.WithFields(log.Fields{
+			"tenant": config.Tenants[id].Name,
+		}).Error("Cannot get password for tenant.")
+		return nil
 	}
+	db := dbConnect(config.Tenants[id].ConnStr, config.Tenants[id].User, pw)
+	// defer db.Close()
+
+	if err := dbPing(config.Tenants[id].Name, db); err != nil {
+		log.WithFields(log.Fields{
+			"tenant": config.Tenants[id].Name,
+		}).Error("Cannot ping tenant. Perhaps wrong password?")
+		return nil
+	}
+	return db
 }
 
 // connect to hana database
