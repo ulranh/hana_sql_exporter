@@ -46,7 +46,10 @@ var pwCmd = &cobra.Command{
 			exit("Can't handle config file: ", err)
 		}
 
-		err = config.setPw(cmd)
+		// set timeout for pw tenant connection test
+		config.Timeout = 5
+
+		err = config.SetPw(cmd)
 		if err != nil {
 			exit("Can't set password: ", err)
 		}
@@ -60,8 +63,8 @@ func init() {
 	pwCmd.MarkPersistentFlagRequired("tenant")
 }
 
-// save password(s) of tenant(s) database user to the config file
-func (config *Config) setPw(cmd *cobra.Command) error {
+// SetPw - save password(s) of tenant(s) database user to the config file
+func (config *Config) SetPw(cmd *cobra.Command) error {
 
 	fmt.Print("Password: ")
 	pw, err := terminal.ReadPassword(0)
@@ -74,8 +77,7 @@ func (config *Config) setPw(cmd *cobra.Command) error {
 		return errors.Wrap(err, "setPw(GetString)")
 	}
 
-	// secret, err := config.addSecret(tenants, pw)
-	config.Secret, err = config.addSecret(tenants, pw)
+	config.Secret, err = config.AddSecret(tenants, pw)
 	if err != nil {
 		return errors.Wrap(err, "setPw(newSecret)")
 	}
@@ -87,65 +89,51 @@ func (config *Config) setPw(cmd *cobra.Command) error {
 	}
 
 	// connection test for all tenants
-	secretMap, err := config.getSecretMap()
+	secretMap, err := config.GetSecretMap()
 	if err != nil {
 		return errors.Wrap(err, "prepare(getSecretMap)")
 	}
-	// for i, tenant := range config.Tenants {
 	for i := range config.Tenants {
 		db := config.getConnection(i, secretMap)
 		if db == nil {
 			continue
 		}
 		db.Close()
-		// pw, err := getPw(secretMap, tenant.Name)
-		// if err != nil {
-		// 	return errors.Wrap(err, "setPw(getPw)")
-		// }
-		// db := dbConnect(tenant.ConnStr, tenant.User, pw)
-		// defer db.Close()
-
-		// if err := dbPing(tenant.Name, db); err != nil {
-		// 	log.WithFields(log.Fields{
-		// 		"tenant": tenant.Name,
-		// 	}).Error("Cannot ping tenant. Perhaps wrong password?")
-		// }
 	}
 
 	return nil
 }
 
-// create encrypted secret map for tenant(s)
-func (config *Config) addSecret(tenants string, pw []byte) ([]byte, error) {
+// AddSecret - create encrypted secret for tenant(s)
+func (config *Config) AddSecret(tenants string, pw []byte) ([]byte, error) {
 	var err error
 
-	// fill map with existing secrets from configfile
-	var secret internal.Secret
-	if err = proto.Unmarshal(config.Secret, &secret); err != nil {
-		return nil, errors.Wrap(err, "newSecret(Unmarshal)")
+	secret, err := config.GetSecretMap()
+	if err != nil {
+		return nil, errors.Wrap(err, "AddSecret(GetSecretMap)")
 	}
 
 	// create secret key once if it doesn't exist
 	if _, ok := secret.Name["secretkey"]; !ok {
 
 		secret.Name = make(map[string][]byte)
-		secret.Name["secretkey"], err = getSecretKey()
+		secret.Name["secretkey"], err = GetSecretKey()
 		if err != nil {
-			return nil, errors.Wrap(err, "newSecret(getSecretKey)")
+			return nil, errors.Wrap(err, "AddSecret(GetSecretKey)")
 		}
 	}
 
 	// encrypt password
-	encPw, err := pwEncrypt(pw, secret.Name["secretkey"])
+	encPw, err := PwEncrypt(pw, secret.Name["secretkey"])
 	if err != nil {
-		return nil, errors.Wrap(err, "newSecret(PwEncrypt)")
+		return nil, errors.Wrap(err, "AddSecret(PwEncrypt)")
 	}
 
 	for _, tenant := range strings.Split(tenants, ",") {
 		tenant := strings.ToLower(tenant)
 
 		// check, if cmd line tenant exists in configfile
-		tInfo := config.findTenant(tenant)
+		tInfo := config.FindTenant(tenant)
 		if "" == tInfo.Name {
 			log.WithFields(log.Fields{
 				"tenant": tenant,
@@ -160,24 +148,24 @@ func (config *Config) addSecret(tenants string, pw []byte) ([]byte, error) {
 	// write pw information back to the config file
 	newSecret, err := proto.Marshal(&secret)
 	if err != nil {
-		return nil, errors.Wrap(err, "newSecret(Marshal)")
+		return nil, errors.Wrap(err, "AddSecret(Marshal)")
 	}
 
 	return newSecret, nil
 }
 
-// findTenant - check if cmpTenant already exists in configfile
-func (config *Config) findTenant(cmpTenant string) tenantInfo {
+// FindTenant - check if cmpTenant already exists in configfile
+func (config *Config) FindTenant(cmpTenant string) TenantInfo {
 	for _, tenant := range config.Tenants {
 		if strings.ToLower(tenant.Name) == strings.ToLower(cmpTenant) {
 			return tenant
 		}
 	}
-	return tenantInfo{}
+	return TenantInfo{}
 }
 
 // GetSecretKey - create secret key once
-func getSecretKey() ([]byte, error) {
+func GetSecretKey() ([]byte, error) {
 
 	key := make([]byte, 32)
 	rand.Seed(time.Now().UnixNano())
@@ -189,7 +177,7 @@ func getSecretKey() ([]byte, error) {
 }
 
 // PwEncrypt - encrypt tenant password
-func pwEncrypt(bytePw, byteSecret []byte) ([]byte, error) {
+func PwEncrypt(bytePw, byteSecret []byte) ([]byte, error) {
 
 	var secretKey [32]byte
 	copy(secretKey[:], byteSecret)
@@ -203,7 +191,7 @@ func pwEncrypt(bytePw, byteSecret []byte) ([]byte, error) {
 }
 
 // PwDecrypt - decrypt tenant password
-func pwDecrypt(encrypted, byteSecret []byte) (string, error) {
+func PwDecrypt(encrypted, byteSecret []byte) (string, error) {
 
 	var secretKey [32]byte
 	copy(secretKey[:], byteSecret)
@@ -218,31 +206,35 @@ func pwDecrypt(encrypted, byteSecret []byte) (string, error) {
 	return string(decrypted), nil
 }
 
-// check if connection works
-func (config *Config) getSecretMap() (internal.Secret, error) {
+// GetSecretMap - unmarshal secret bytes
+func (config *Config) GetSecretMap() (internal.Secret, error) {
+
+	if config.Secret == nil {
+		return internal.Secret{}, nil
+	}
 
 	// unmarshal secret byte array
 	var secret internal.Secret
 	if err := proto.Unmarshal(config.Secret, &secret); err != nil {
-		return internal.Secret{}, errors.Wrap(err, "prepare(Unmarshal)")
+		return internal.Secret{}, errors.Wrap(err, "GetSecretMap(Unmarshal)")
 	}
 	return secret, nil
 }
 
-// getPw - decrypt password
-func getPw(secret internal.Secret, tenant string) (string, error) {
+// GetPassword - decrypt password
+func GetPassword(secret internal.Secret, tenant string) (string, error) {
 
 	tenant = strings.ToLower(tenant)
 
 	// get encrypted tenant pw
 	if _, ok := secret.Name[tenant]; !ok {
-		return "", errors.New("encrypted tenant pw info does not exist")
+		return "", errors.New("GetPassword(encrypted tenant pw info does not exist)")
 	}
 
 	// decrypt tenant password
-	pw, err := pwDecrypt(secret.Name[tenant], secret.Name["secretkey"])
+	pw, err := PwDecrypt(secret.Name[tenant], secret.Name["secretkey"])
 	if err != nil {
-		return "", errors.Wrap(err, "getPW(PwDecrypt)")
+		return "", errors.Wrap(err, "GetPassword(PwDecrypt)")
 	}
 	return pw, nil
 }

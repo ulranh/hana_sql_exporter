@@ -36,20 +36,20 @@ type collector struct {
 	Desc *prometheus.Desc
 
 	// a parameterized function used to gather metrics.
-	stats func() []metricData
+	stats func() []MetricData
 }
 
-type metricData struct {
-	name       string
-	help       string
-	metricType string
-	stats      []metricRecord
+type MetricData struct {
+	Name       string
+	Help       string
+	MetricType string
+	Stats      []MetricRecord
 }
 
-type metricRecord struct {
-	value       float64
-	labels      []string
-	labelValues []string
+type MetricRecord struct {
+	Value       float64
+	Labels      []string
+	LabelValues []string
 }
 
 // webCmd represents the web command
@@ -65,7 +65,7 @@ var webCmd = &cobra.Command{
 			exit("Can't handle config file: ", err)
 		}
 
-		config.timeout, err = cmd.Flags().GetUint("timeout")
+		config.Timeout, err = cmd.Flags().GetUint("timeout")
 		if err != nil {
 			exit("Problem with timeout flag: ", err)
 		}
@@ -74,7 +74,10 @@ var webCmd = &cobra.Command{
 			exit("Problem with port flag: ", err)
 		}
 
-		err = config.web()
+		// set data func
+		config.DataFunc = config.GetMetricData
+
+		err = config.Web()
 		if err != nil {
 			exit("Can't call exporter: ", err)
 		}
@@ -89,18 +92,18 @@ func init() {
 }
 
 // create new collector
-func newCollector(stats func() []metricData) *collector {
+func newCollector(stats func() []MetricData) *collector {
 	return &collector{
 		stats: stats,
 	}
 }
 
-// describe implements prometheus.Collector.
+// Describe - describe implements prometheus.Collector.
 func (c *collector) Describe(ch chan<- *prometheus.Desc) {
 	prometheus.DescribeByCollect(c, ch)
 }
 
-// collect implements prometheus.Collector.
+// Collect - implements prometheus.Collector.
 func (c *collector) Collect(ch chan<- prometheus.Metric) {
 	// take a stats snapshot. must be concurrency safe.
 	stats := c.stats()
@@ -111,20 +114,20 @@ func (c *collector) Collect(ch chan<- prometheus.Metric) {
 	}
 
 	for _, mi := range stats {
-		for _, v := range mi.stats {
+		for _, v := range mi.Stats {
 			m := prometheus.MustNewConstMetric(
-				prometheus.NewDesc(mi.name, mi.help, v.labels, nil),
-				valueType[strings.ToLower(mi.metricType)],
-				v.value,
-				v.labelValues...,
+				prometheus.NewDesc(mi.Name, mi.Help, v.Labels, nil),
+				valueType[strings.ToLower(mi.MetricType)],
+				v.Value,
+				v.LabelValues...,
 			)
 			ch <- m
 		}
 	}
 }
 
-// start collector and web server
-func (config *Config) web() error {
+// Web - start collector and web server
+func (config *Config) Web() error {
 	var err error
 
 	config.Tenants, err = config.prepare()
@@ -133,12 +136,12 @@ func (config *Config) web() error {
 	}
 
 	// close tenant connections at the end
-	for _, t := range config.Tenants {
-		defer t.conn.Close()
+	for i := range config.Tenants {
+		defer config.Tenants[i].conn.Close()
 	}
 
-	stats := func() []metricData {
-		return config.collectMetrics()
+	stats := func() []MetricData {
+		return config.CollectMetrics()
 	}
 
 	// start collector
@@ -148,7 +151,7 @@ func (config *Config) web() error {
 	// start http server
 	mux := http.NewServeMux()
 	mux.Handle("/metrics", promhttp.Handler())
-	mux.HandleFunc("/", rootHandler)
+	mux.HandleFunc("/", RootHandler)
 
 	// Add the pprof routes
 	// mux.HandleFunc("/debug/pprof/", pprof.Index)
@@ -165,8 +168,8 @@ func (config *Config) web() error {
 	server := &http.Server{
 		Addr:         ":" + config.port,
 		Handler:      mux,
-		WriteTimeout: time.Duration(config.timeout+2) * time.Second,
-		ReadTimeout:  time.Duration(config.timeout+2) * time.Second,
+		WriteTimeout: time.Duration(config.Timeout+2) * time.Second,
+		ReadTimeout:  time.Duration(config.Timeout+2) * time.Second,
 	}
 	err = server.ListenAndServe()
 	if err != nil {
@@ -175,16 +178,16 @@ func (config *Config) web() error {
 	return nil
 }
 
-func rootHandler(w http.ResponseWriter, r *http.Request) {
+func RootHandler(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprintf(w, "prometheus hana_sql_exporter: please call <host>:<port>/metrics")
 }
 
-// collecting all metrics and fetch the results
-func (config *Config) collectMetrics() []metricData {
+// CollectMetrics - collecting all metrics and fetch the results
+func (config *Config) CollectMetrics() []MetricData {
 
 	var wg sync.WaitGroup
 	metricCnt := len(config.Metrics)
-	metricsC := make(chan metricData, metricCnt)
+	metricsC := make(chan MetricData, metricCnt)
 
 	for mPos := range config.Metrics {
 
@@ -192,11 +195,11 @@ func (config *Config) collectMetrics() []metricData {
 		go func(mPos int) {
 
 			defer wg.Done()
-			metricsC <- metricData{
-				name:       config.Metrics[mPos].Name,
-				help:       config.Metrics[mPos].Help,
-				metricType: config.Metrics[mPos].MetricType,
-				stats:      config.collectMetric(mPos),
+			metricsC <- MetricData{
+				Name:       config.Metrics[mPos].Name,
+				Help:       config.Metrics[mPos].Help,
+				MetricType: config.Metrics[mPos].MetricType,
+				Stats:      config.CollectMetric(mPos),
 			}
 		}(mPos)
 	}
@@ -206,40 +209,36 @@ func (config *Config) collectMetrics() []metricData {
 		close(metricsC)
 	}()
 
-	var metricsData []metricData
+	var metricsData []MetricData
 	for metric := range metricsC {
-		metricsData = append(metricsData, metric)
+		if metric.Stats != nil {
+			metricsData = append(metricsData, metric)
+		}
 	}
 
 	return metricsData
 }
 
-// collecting one metric for every tenants
-func (config *Config) collectMetric(mPos int) []metricRecord {
+// CollectMetric - collecting one metric for every tenants
+func (config *Config) CollectMetric(mPos int) []MetricRecord {
 
 	// set timeout
-	ctx, cancel := context.WithDeadline(context.Background(), time.Now().Add(time.Duration(config.timeout)*time.Second))
+	ctx, cancel := context.WithDeadline(context.Background(), time.Now().Add(time.Duration(config.Timeout)*time.Second))
 	defer cancel()
 
 	tenantCnt := len(config.Tenants)
-	metricC := make(chan []metricRecord, tenantCnt)
+	metricC := make(chan []MetricRecord, tenantCnt)
 
 	for tPos := range config.Tenants {
 
 		go func(tPos int) {
 
-			metricC <- config.prepareMetricData(mPos, tPos)
-			// select {
-			// // case metricC <- config.prepareMetricData(ctx, mPos, tPos):
-			// case metricC <- config.prepareMetricData(mPos, tPos):
-			// case <-ctx.Done():
-			// 	return
-			// }
+			metricC <- config.DataFunc(mPos, tPos)
 		}(tPos)
 	}
 
 	// collect data
-	var sData []metricRecord
+	var sData []MetricRecord
 	for i := 0; i < tenantCnt; i++ {
 		select {
 		case mc := <-metricC:
@@ -253,41 +252,15 @@ func (config *Config) collectMetric(mPos int) []metricRecord {
 	return sData
 }
 
-// filter out not associated tenants
-func (config *Config) prepareMetricData(mPos, tPos int) []metricRecord {
+// GetMetricData - metric data for one tenant
+func (config *Config) GetMetricData(mPos, tPos int) []MetricRecord {
 
-	// !!!!!!!!!!!!!!!
-	// t := rand.Intn(7)
-	// time.Sleep(time.Duration(t) * time.Second)
-
-	// all values of metrics tag filter must be in tenants tags, otherwise the
-	// metric is not relevant for the tenant
-	if !subSliceInSlice(config.Metrics[mPos].TagFilter, config.Tenants[tPos].Tags) {
+	sel := config.GetSelection(mPos, tPos)
+	if "" == sel {
 		return nil
 	}
 
-	sel := strings.TrimSpace(config.Metrics[mPos].SQL)
-	if !strings.EqualFold(sel[0:6], "select") {
-		log.WithFields(log.Fields{
-			"metric": config.Metrics[mPos].Name,
-			"tenant": config.Tenants[tPos].Name,
-		}).Error("Only selects are allowed")
-		return nil
-	}
-
-	// metrics schema filter must include a tenant schema
-	var schema string
-	if schema = firstValueInSlice(config.Metrics[mPos].SchemaFilter, config.Tenants[tPos].schemas); 0 == len(schema) {
-		log.WithFields(log.Fields{
-			"metric": config.Metrics[mPos].Name,
-			"tenant": config.Tenants[tPos].Name,
-		}).Error("SchemaFilter value in toml file is missing")
-		return nil
-	}
-	sel = strings.ReplaceAll(sel, "<SCHEMA>", schema)
-
-	// res, err := config.Tenants[tPos].getMetricData(ctx, sel)
-	res, err := config.Tenants[tPos].getMetricData(sel)
+	rows, err := config.Tenants[tPos].conn.Query(sel)
 	if err != nil {
 		log.WithFields(log.Fields{
 			"metric": config.Metrics[mPos].Name,
@@ -296,45 +269,65 @@ func (config *Config) prepareMetricData(mPos, tPos int) []metricRecord {
 		}).Error("Can't get sql result for metric")
 		return nil
 	}
-	return res
+	defer rows.Close()
+
+	md, err := config.Tenants[tPos].GetMetricRows(rows)
+	if err = rows.Err(); err != nil {
+		return nil
+	}
+	return md
 }
 
-// get metric data for one tenant
-func (tenant *tenantInfo) getMetricData(sel string) ([]metricRecord, error) {
-	var err error
+// GetSelection - prepare the db selection
+func (config *Config) GetSelection(mPos, tPos int) string {
 
-	var rows *sql.Rows
-
-	// log.Println("jojo: ", tenant.conn.Conn())
-	// conn, err := tenant.conn.Conn(ctx)
-	// if err != nil {
-	// 	return nil, errors.Wrap(err, "getMetricData(conn.Conn)")
-	// }
-	// defer conn.Close()
-
-	rows, err = tenant.conn.Query(sel)
-	if err != nil {
-		return nil, errors.Wrap(err, "getMetricData(conn.QueryContext)")
+	// all values of metrics tag filter must be in tenants tags, otherwise the
+	// metric is not relevant for the tenant
+	if !SubSliceInSlice(config.Metrics[mPos].TagFilter, config.Tenants[tPos].Tags) {
+		return ""
 	}
-	defer rows.Close()
+
+	sel := strings.TrimSpace(config.Metrics[mPos].SQL)
+	if !strings.EqualFold(sel[0:6], "select") {
+		log.WithFields(log.Fields{
+			"metric": config.Metrics[mPos].Name,
+			"tenant": config.Tenants[tPos].Name,
+		}).Error("Only selects are allowed")
+		return ""
+	}
+
+	// metrics schema filter must include a tenant schema
+	var schema string
+	if schema = FirstValueInSlice(config.Metrics[mPos].SchemaFilter, config.Tenants[tPos].Schemas); 0 == len(schema) {
+		log.WithFields(log.Fields{
+			"metric": config.Metrics[mPos].Name,
+			"tenant": config.Tenants[tPos].Name,
+		}).Error("metrics schema filter must include a tenant schema")
+		return ""
+	}
+	return strings.ReplaceAll(config.Metrics[mPos].SQL, "<SCHEMA>", schema)
+}
+
+// GetMetricRows - return the metric values
+func (tenant *TenantInfo) GetMetricRows(rows *sql.Rows) ([]MetricRecord, error) {
 
 	cols, err := rows.Columns()
 	if err != nil {
-		return nil, errors.Wrap(err, "getMetricData(rows.Columns)")
+		return nil, errors.Wrap(err, "GetMetricRows(rows.Columns)")
 	}
 
 	if len(cols) < 1 {
-		return nil, errors.New("getMetricData(no columns)")
+		return nil, errors.New("GetMetricRows(no columns)")
 	}
 
 	// first column must not be string
 	colt, err := rows.ColumnTypes()
 	if err != nil {
-		return nil, errors.Wrap(err, "getMetricData(rows.ColumnTypes)")
+		return nil, errors.Wrap(err, "GetMetricRows(rows.ColumnTypes)")
 	}
 	switch colt[0].ScanType().Name() {
 	case "string", "bool", "":
-		return nil, errors.New("getMetricData(first column must be numeric)")
+		return nil, errors.New("GetMetricRows(first column must be numeric)")
 	default:
 	}
 
@@ -344,54 +337,55 @@ func (tenant *tenantInfo) getMetricData(sel string) ([]metricRecord, error) {
 		scanArgs[i] = &values[i]
 	}
 
-	var md []metricRecord
+	var md []MetricRecord
 	for rows.Next() {
-		data := metricRecord{
-			labels:      []string{"tenant", "usage"},
-			labelValues: []string{strings.ToLower(tenant.Name), strings.ToLower(tenant.usage)},
+		data := MetricRecord{
+			Labels:      []string{"tenant", "usage"},
+			LabelValues: []string{strings.ToLower(tenant.Name), strings.ToLower(tenant.Usage)},
 		}
 		err = rows.Scan(scanArgs...)
 		if err != nil {
-			return nil, errors.Wrap(err, "getMetricData(rows.Scan)")
+			return nil, errors.Wrap(err, "GetMetricRows(rows.Scan)")
 		}
 
 		for i, colval := range values {
 
 			// check for NULL value
 			if colval == nil {
-				return nil, errors.Wrap(err, "getMetricData(colval is null)")
+				return nil, errors.Wrap(err, "GetMetricRows(colval is null)")
 			}
 
 			if 0 == i {
 
 				// the first column must be the float value
-				data.value, err = strconv.ParseFloat(string(colval), 64)
+				data.Value, err = strconv.ParseFloat(string(colval), 64)
 				if err != nil {
-					return nil, errors.Wrap(err, "getMetricData(ParseFloat - first column cannot be converted to float64)")
+					return nil, errors.Wrap(err, "GetMetricRows(ParseFloat - first column cannot be converted to float64)")
 				}
 			} else {
-				data.labels = append(data.labels, strings.ToLower(cols[i]))
-				data.labelValues = append(data.labelValues, strings.ToLower(strings.Join(strings.Split(string(colval), " "), "_")))
+				data.Labels = append(data.Labels, strings.ToLower(cols[i]))
+				data.LabelValues = append(data.LabelValues, strings.ToLower(strings.Join(strings.Split(string(colval), " "), "_")))
 
 			}
 		}
 		md = append(md, data)
 	}
 	if err = rows.Err(); err != nil {
-		return nil, errors.Wrap(err, "getMetricData(rows)")
+		return nil, errors.Wrap(err, "GetMetricRows(rows)")
 	}
+
 	return md, nil
 }
 
 // add missing information to tenant struct
-func (config *Config) prepare() ([]tenantInfo, error) {
+func (config *Config) prepare() ([]TenantInfo, error) {
 
-	var tenantsOk []tenantInfo
+	var tenantsOk []TenantInfo
 
 	// adapt config.Metrics schema filter
-	config.adaptSchemaFilter()
+	config.AdaptSchemaFilter()
 
-	secretMap, err := config.getSecretMap()
+	secretMap, err := config.GetSecretMap()
 	if err != nil {
 		return nil, errors.Wrap(err, "prepare(getSecretMap)")
 	}
@@ -402,24 +396,9 @@ func (config *Config) prepare() ([]tenantInfo, error) {
 		if config.Tenants[i].conn == nil {
 			continue
 		}
-		// pw, err := getPw(secretMap, config.Tenants[i].Name)
-		// if err != nil {
-		// 	log.WithFields(log.Fields{
-		// 		"tenant": config.Tenants[i].Name,
-		// 		"error":  err,
-		// 	}).Error("Can't find or decrypt password for tenant - tenant removed!")
-
-		// 	continue
-		// }
-
-		// // connect to db tenant
-		// config.Tenants[i].conn = dbConnect(config.Tenants[i].ConnStr, config.Tenants[i].User, pw)
-		// if err = dbPing(config.Tenants[i].Name, config.Tenants[i].conn); err != nil {
-		// 	continue
-		// }
 
 		// get tenant usage and hana-user schema information
-		err = config.Tenants[i].collectRemainingTenantInfos()
+		err = config.collectRemainingTenantInfos(i)
 		if err != nil {
 			log.WithFields(log.Fields{
 				"tenant": config.Tenants[i].Name,
@@ -435,20 +414,20 @@ func (config *Config) prepare() ([]tenantInfo, error) {
 }
 
 // get tenant usage and hana-user schema information
-func (t *tenantInfo) collectRemainingTenantInfos() error {
+func (config *Config) collectRemainingTenantInfos(tPos int) error {
 
 	// get tenant usage information
-	row := t.conn.QueryRow("select usage from sys.m_database")
-	err := row.Scan(&t.usage)
+	row := config.Tenants[tPos].conn.QueryRow("select usage from sys.m_database")
+	err := row.Scan(&config.Tenants[tPos].Usage)
 	if err != nil {
 		return errors.Wrap(err, "collectRemainingTenantInfos(Scan)")
 	}
 
 	// append sys schema to tenant schemas
-	t.schemas = append(t.schemas, "sys")
+	config.Tenants[tPos].Schemas = append(config.Tenants[tPos].Schemas, "sys")
 
 	// append remaining user schema privileges
-	rows, err := t.conn.Query("select schema_name from sys.granted_privileges where object_type='SCHEMA' and grantee=$1", strings.ToUpper(t.User))
+	rows, err := config.Tenants[tPos].conn.Query("select schema_name from sys.granted_privileges where object_type='SCHEMA' and grantee=$1", strings.ToUpper(config.Tenants[tPos].User))
 	if err != nil {
 		return errors.Wrap(err, "collectRemainingTenantInfos(Query)")
 	}
@@ -460,7 +439,7 @@ func (t *tenantInfo) collectRemainingTenantInfos() error {
 		if err != nil {
 			return errors.Wrap(err, "collectRemainingTenantInfos(Scan)")
 		}
-		t.schemas = append(t.schemas, schema)
+		config.Tenants[tPos].Schemas = append(config.Tenants[tPos].Schemas, schema)
 	}
 	if err = rows.Err(); err != nil {
 		return errors.Wrap(err, "collectRemainingTenantInfos(rows.Err)")
@@ -468,18 +447,18 @@ func (t *tenantInfo) collectRemainingTenantInfos() error {
 	return nil
 }
 
-// add sys schema to SchemaFilter if it does not exists
-func (config *Config) adaptSchemaFilter() {
+//  AdaptSchemaFilter - add sys schema to SchemaFilter if it does not exists
+func (config *Config) AdaptSchemaFilter() {
 
 	for mPos := range config.Metrics {
-		if !containsString("sys", config.Metrics[mPos].SchemaFilter) {
+		if !ContainsString("sys", config.Metrics[mPos].SchemaFilter) {
 			config.Metrics[mPos].SchemaFilter = append(config.Metrics[mPos].SchemaFilter, "sys")
 		}
 	}
 }
 
-// true, if slice contains string
-func containsString(str string, slice []string) bool {
+// ContainsString - true, if slice contains string
+func ContainsString(str string, slice []string) bool {
 	for _, s := range slice {
 		if strings.EqualFold(s, str) {
 			return true
@@ -488,8 +467,8 @@ func containsString(str string, slice []string) bool {
 	return false
 }
 
-// true, if every item in sublice exists in slice or sublice is empty
-func subSliceInSlice(subSlice []string, slice []string) bool {
+// SubSliceInSlice - true, if every item in sublice exists in slice or sublice is empty
+func SubSliceInSlice(subSlice []string, slice []string) bool {
 	for _, vs := range subSlice {
 		for _, v := range slice {
 			if strings.EqualFold(vs, v) {
@@ -502,8 +481,8 @@ func subSliceInSlice(subSlice []string, slice []string) bool {
 	return true
 }
 
-// return first sublice value that exists in slice
-func firstValueInSlice(subSlice []string, slice []string) string {
+// FirstValueInSlice - return first sublice value that exists in slice
+func FirstValueInSlice(subSlice []string, slice []string) string {
 	for _, vs := range subSlice {
 		for _, v := range slice {
 			if strings.EqualFold(vs, v) {
@@ -512,4 +491,22 @@ func firstValueInSlice(subSlice []string, slice []string) string {
 		}
 	}
 	return ""
+}
+
+// ---------------------------------------------------------------------
+// GetTestData1 - for testing purpose only
+func (config *Config) GetTestData1(mPos, tPos int) []MetricRecord {
+	mr := []MetricRecord{
+		MetricRecord{
+			999.0,
+			[]string{"l" + strconv.Itoa(mPos) + strconv.Itoa(tPos)},
+			[]string{"lv" + strconv.Itoa(mPos) + strconv.Itoa(tPos)},
+		},
+	}
+	return mr
+}
+
+// GetTestData2 - for testing purpose only
+func (config *Config) GetTestData2(mPos, tPos int) []MetricRecord {
+	return nil
 }

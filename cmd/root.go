@@ -30,18 +30,18 @@ import (
 )
 
 // tenant info
-type tenantInfo struct {
+type TenantInfo struct {
 	Name    string
 	Tags    []string
 	ConnStr string
 	User    string
-	usage   string
-	schemas []string
+	Usage   string
+	Schemas []string
 	conn    *sql.DB
 }
 
 // metric info
-type metricInfo struct {
+type MetricInfo struct {
 	Name         string
 	Help         string
 	MetricType   string
@@ -52,11 +52,12 @@ type metricInfo struct {
 
 // Config struct with config file infos
 type Config struct {
-	Secret  []byte
-	Tenants []tenantInfo
-	Metrics []metricInfo
-	timeout uint
-	port    string
+	Secret   []byte
+	Tenants  []TenantInfo
+	Metrics  []MetricInfo
+	DataFunc func(mPos, tPos int) []MetricRecord
+	Timeout  uint
+	port     string
 }
 
 var cfgFile string
@@ -130,35 +131,42 @@ func exit(msg string, err error) {
 	os.Exit(1)
 }
 
-func (config *Config) getConnection(id int, secretMap internal.Secret) *sql.DB {
+// prepare, establish, check and return connection to hana db
+func (config *Config) getConnection(tId int, secretMap internal.Secret) *sql.DB {
 
-	pw, err := getPw(secretMap, config.Tenants[id].Name)
+	pw, err := GetPassword(secretMap, config.Tenants[tId].Name)
 	if err != nil {
 		log.WithFields(log.Fields{
-			"tenant": config.Tenants[id].Name,
-		}).Error("Cannot get password for tenant.")
+			"tenant": config.Tenants[tId].Name,
+		}).Error("Cannot find password for tenant.")
 		return nil
 	}
-	db := dbConnect(config.Tenants[id].ConnStr, config.Tenants[id].User, pw)
+	db := config.dbConnect(tId, pw)
+	if db == nil {
+		log.WithFields(log.Fields{
+			"tenant": config.Tenants[tId].Name,
+		}).Error("Can't get connection.")
+		return nil
+	}
 	// defer db.Close()
 
-	if err := dbPing(config.Tenants[id].Name, db); err != nil {
+	if err := db.Ping(); err != nil {
 		log.WithFields(log.Fields{
-			"tenant": config.Tenants[id].Name,
+			"tenant": config.Tenants[tId].Name,
 		}).Error("Cannot ping tenant. Perhaps wrong password?")
 		return nil
 	}
 	return db
 }
 
-// connect to hana database
-func dbConnect(connStr, user, pw string) *sql.DB {
+// connect to hana db
+func (config *Config) dbConnect(tId int, pw string) *sql.DB {
 
-	connector, err := goHdbDriver.NewDSNConnector("hdb://" + user + ":" + pw + "@" + connStr)
+	connector, err := goHdbDriver.NewDSNConnector("hdb://" + config.Tenants[tId].User + ":" + pw + "@" + config.Tenants[tId].ConnStr)
 	if err != nil {
-		log.Fatal(err)
+		return nil
 	}
-	// connector.SetTimeout(10)
+	connector.SetTimeout(time.Duration(config.Timeout) * time.Second)
 
 	db := sql.OpenDB(connector)
 	db.SetMaxOpenConns(25)
@@ -166,17 +174,4 @@ func dbConnect(connStr, user, pw string) *sql.DB {
 	db.SetConnMaxLifetime(5 * time.Minute)
 
 	return db
-}
-
-// check if connection works
-func dbPing(name string, conn *sql.DB) error {
-	err := conn.Ping()
-	if err != nil {
-		log.WithFields(log.Fields{
-			"tenant": name,
-			"error":  err,
-		}).Error("Can't connect to tenant")
-		return err
-	}
-	return nil
 }

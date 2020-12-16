@@ -102,10 +102,10 @@ $ ./hana_sql_exporter pw --tenant q01,qj1 --config ./hana_sql_exporter.toml
 Now the web server can be started:
 #### Binary
 
-The default port is 9658 which can be changed with the -port flag. The standard timeout is set to 10 seconds, which means that if a scrape for one metric and tenant takes more than 10 seconds, it will be aborted. This is normally only the case, if a tenant is overloaded or the selects are really extensive. In my experience the scrapes for 25 tenants and 30 metrics in one config file take approximately 250ms altogether, if all tenants are responsive. Normally I set the timeout flag to 3 seconds, the scrape timeout for the corresponding Prometheus job to 10 seconds and the scrape intervall to one minute.
+The default port is 9658 which can be changed with the -port flag. The standard timeout is set to 10 seconds, which means that if a scrape for one metric and tenant takes more than 10 seconds, it will be aborted. This is normally only the case, if a tenant is overloaded or the selects are really extensive. In my experience the scrapes for 25 tenants and 30 metrics in one config file take approximately 250ms altogether, if all tenants are responsive. Normally I set the timeout flag to 5 seconds, the scrape timeout for the corresponding Prometheus job to 10 seconds and the scrape intervall to one minute.
 
 ```
-$ ./hana_sql_exporter web --config ./hana_sql_exporter.toml --timeout 3
+$ ./hana_sql_exporter web --config ./hana_sql_exporter.toml --timeout 5
 ```
 Then you should be able to find the desired metrics after calling ``localhost:9658/metrics`` in the browser.
 
