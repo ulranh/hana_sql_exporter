@@ -130,19 +130,18 @@ func (config *Config) AddSecret(tenants string, pw []byte) ([]byte, error) {
 	}
 
 	for _, tenant := range strings.Split(tenants, ",") {
-		tenant := strings.ToLower(tenant)
 
 		// check, if cmd line tenant exists in configfile
-		tInfo := config.FindTenant(tenant)
+		tInfo := config.FindTenant(low(tenant))
 		if "" == tInfo.Name {
 			log.WithFields(log.Fields{
-				"tenant": tenant,
+				"tenant": low(tenant),
 			}).Error("missing tenant")
 			return nil, errors.New("Did not find tenant in configfile tenants slice.")
 		}
 
 		// add password to secret map
-		secret.Name[tenant] = encPw
+		secret.Name[low(tenant)] = encPw
 	}
 
 	// write pw information back to the config file
@@ -157,7 +156,7 @@ func (config *Config) AddSecret(tenants string, pw []byte) ([]byte, error) {
 // FindTenant - check if cmpTenant already exists in configfile
 func (config *Config) FindTenant(cmpTenant string) TenantInfo {
 	for _, tenant := range config.Tenants {
-		if strings.ToLower(tenant.Name) == strings.ToLower(cmpTenant) {
+		if low(tenant.Name) == low(cmpTenant) {
 			return tenant
 		}
 	}
@@ -224,7 +223,7 @@ func (config *Config) GetSecretMap() (internal.Secret, error) {
 // GetPassword - decrypt password
 func GetPassword(secret internal.Secret, tenant string) (string, error) {
 
-	tenant = strings.ToLower(tenant)
+	tenant = low(tenant)
 
 	// get encrypted tenant pw
 	if _, ok := secret.Name[tenant]; !ok {

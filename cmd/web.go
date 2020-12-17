@@ -117,7 +117,7 @@ func (c *collector) Collect(ch chan<- prometheus.Metric) {
 		for _, v := range mi.Stats {
 			m := prometheus.MustNewConstMetric(
 				prometheus.NewDesc(mi.Name, mi.Help, v.Labels, nil),
-				valueType[strings.ToLower(mi.MetricType)],
+				valueType[low(mi.MetricType)],
 				v.Value,
 				v.LabelValues...,
 			)
@@ -341,7 +341,7 @@ func (tenant *TenantInfo) GetMetricRows(rows *sql.Rows) ([]MetricRecord, error) 
 	for rows.Next() {
 		data := MetricRecord{
 			Labels:      []string{"tenant", "usage"},
-			LabelValues: []string{strings.ToLower(tenant.Name), strings.ToLower(tenant.Usage)},
+			LabelValues: []string{low(tenant.Name), low(tenant.Usage)},
 		}
 		err = rows.Scan(scanArgs...)
 		if err != nil {
@@ -363,8 +363,8 @@ func (tenant *TenantInfo) GetMetricRows(rows *sql.Rows) ([]MetricRecord, error) 
 					return nil, errors.Wrap(err, "GetMetricRows(ParseFloat - first column cannot be converted to float64)")
 				}
 			} else {
-				data.Labels = append(data.Labels, strings.ToLower(cols[i]))
-				data.LabelValues = append(data.LabelValues, strings.ToLower(strings.Join(strings.Split(string(colval), " "), "_")))
+				data.Labels = append(data.Labels, low(cols[i]))
+				data.LabelValues = append(data.LabelValues, low(strings.Join(strings.Split(string(colval), " "), "_")))
 
 			}
 		}

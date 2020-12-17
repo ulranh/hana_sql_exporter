@@ -18,6 +18,7 @@ import (
 	"database/sql"
 	"fmt"
 	"os"
+	"strings"
 	"time"
 
 	goHdbDriver "github.com/SAP/go-hdb/driver"
@@ -174,4 +175,8 @@ func (config *Config) dbConnect(tId int, pw string) *sql.DB {
 	db.SetConnMaxLifetime(5 * time.Minute)
 
 	return db
+}
+
+func low(str string) string {
+	return strings.TrimSpace(strings.ToLower(str))
 }
