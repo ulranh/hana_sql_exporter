@@ -223,15 +223,13 @@ func (config *Config) GetSecretMap() (internal.Secret, error) {
 // GetPassword - decrypt password
 func GetPassword(secret internal.Secret, tenant string) (string, error) {
 
-	tenant = low(tenant)
-
 	// get encrypted tenant pw
-	if _, ok := secret.Name[tenant]; !ok {
+	if _, ok := secret.Name[low(tenant)]; !ok {
 		return "", errors.New("GetPassword(encrypted tenant pw info does not exist)")
 	}
 
 	// decrypt tenant password
-	pw, err := PwDecrypt(secret.Name[tenant], secret.Name["secretkey"])
+	pw, err := PwDecrypt(secret.Name[low(tenant)], secret.Name["secretkey"])
 	if err != nil {
 		return "", errors.Wrap(err, "GetPassword(PwDecrypt)")
 	}
