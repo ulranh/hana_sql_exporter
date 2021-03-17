@@ -20,6 +20,7 @@ import (
 	"io"
 	"math/rand"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/golang/protobuf/proto"
@@ -67,7 +68,9 @@ func init() {
 func (config *Config) SetPw(cmd *cobra.Command) error {
 
 	fmt.Print("Password: ")
-	pw, err := terminal.ReadPassword(0)
+	// syscall.Stdin is not 0 on windows
+	pw, err := terminal.ReadPassword(int(syscall.Stdin))
+	// pw, err := terminal.ReadPassword(0)
 	if err != nil {
 		return errors.Wrap(err, "setPw(ReadPassword)")
 	}
