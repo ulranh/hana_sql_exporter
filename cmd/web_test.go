@@ -60,7 +60,7 @@ func Test_CollectMetrics11(t *testing.T) {
 
 	res := config.CollectMetrics()
 	// assert.Nil(res)
-	assert.Equal(res, []cmd.MetricData{cmd.MetricData{Name: "m1", Help: "h1", MetricType: "gauge", Stats: []cmd.MetricRecord{cmd.MetricRecord{Value: 999, Labels: []string{"l00"}, LabelValues: []string{"lv00"}}}}})
+	assert.Equal(res, []cmd.MetricData{{Name: "m1", Help: "h1", MetricType: "gauge", Stats: []cmd.MetricRecord{{Value: 999, Labels: []string{"l00"}, LabelValues: []string{"lv00"}}}}})
 }
 
 // 2 metrics, 1 tenant
@@ -71,8 +71,8 @@ func Test_CollectMetrics21(t *testing.T) {
 
 	res := config.CollectMetrics()
 	fmt.Println("21: ", res)
-	fmt.Println("21: ", []cmd.MetricData{cmd.MetricData{Name: "m1", Help: "h1", MetricType: "gauge", Stats: []cmd.MetricRecord{cmd.MetricRecord{Value: 999, Labels: []string{"l00"}, LabelValues: []string{"lv00"}}}}, cmd.MetricData{Name: "m2", Help: "h2", MetricType: "gauge", Stats: []cmd.MetricRecord{cmd.MetricRecord{Value: 999, Labels: []string{"l10"}, LabelValues: []string{"lv10"}}}}})
-	assert.Equal(true, cmp.Equal(res, []cmd.MetricData{cmd.MetricData{Name: "m1", Help: "h1", MetricType: "gauge", Stats: []cmd.MetricRecord{cmd.MetricRecord{Value: 999, Labels: []string{"l00"}, LabelValues: []string{"lv00"}}}}, cmd.MetricData{Name: "m2", Help: "h2", MetricType: "gauge", Stats: []cmd.MetricRecord{cmd.MetricRecord{Value: 999, Labels: []string{"l10"}, LabelValues: []string{"lv10"}}}}}))
+	fmt.Println("21: ", []cmd.MetricData{{Name: "m1", Help: "h1", MetricType: "gauge", Stats: []cmd.MetricRecord{{Value: 999, Labels: []string{"l00"}, LabelValues: []string{"lv00"}}}}, {Name: "m2", Help: "h2", MetricType: "gauge", Stats: []cmd.MetricRecord{{Value: 999, Labels: []string{"l10"}, LabelValues: []string{"lv10"}}}}})
+	assert.Equal(true, cmp.Equal(res, []cmd.MetricData{{Name: "m1", Help: "h1", MetricType: "gauge", Stats: []cmd.MetricRecord{{Value: 999, Labels: []string{"l00"}, LabelValues: []string{"lv00"}}}}, {Name: "m2", Help: "h2", MetricType: "gauge", Stats: []cmd.MetricRecord{{Value: 999, Labels: []string{"l10"}, LabelValues: []string{"lv10"}}}}}))
 }
 
 // 1 metric, 2 tenants
@@ -83,8 +83,8 @@ func Test_CollectMetrics12(t *testing.T) {
 
 	res := config.CollectMetrics()
 	fmt.Println("12: ", res)
-	fmt.Println("12: ", []cmd.MetricData{cmd.MetricData{Name: "m1", Help: "h1", MetricType: "gauge", Stats: []cmd.MetricRecord{cmd.MetricRecord{Value: 999, Labels: []string{"l01"}, LabelValues: []string{"lv01"}}, cmd.MetricRecord{Value: 999, Labels: []string{"l00"}, LabelValues: []string{"lv00"}}}}})
-	assert.Equal(true, cmp.Equal(res, []cmd.MetricData{cmd.MetricData{Name: "m1", Help: "h1", MetricType: "gauge", Stats: []cmd.MetricRecord{cmd.MetricRecord{Value: 999, Labels: []string{"l01"}, LabelValues: []string{"lv01"}}, cmd.MetricRecord{Value: 999, Labels: []string{"l00"}, LabelValues: []string{"lv00"}}}}}))
+	fmt.Println("12: ", []cmd.MetricData{{Name: "m1", Help: "h1", MetricType: "gauge", Stats: []cmd.MetricRecord{{Value: 999, Labels: []string{"l01"}, LabelValues: []string{"lv01"}}, {Value: 999, Labels: []string{"l00"}, LabelValues: []string{"lv00"}}}}})
+	assert.Equal(true, cmp.Equal(res, []cmd.MetricData{{Name: "m1", Help: "h1", MetricType: "gauge", Stats: []cmd.MetricRecord{{Value: 999, Labels: []string{"l01"}, LabelValues: []string{"lv01"}}, {Value: 999, Labels: []string{"l00"}, LabelValues: []string{"lv00"}}}}}))
 }
 
 func Test_CollectNilMetrics(t *testing.T) {
@@ -135,10 +135,10 @@ func Test_GetSelection(t *testing.T) {
 func Test_AdaptSchemaFilter(t *testing.T) {
 
 	var mi = []cmd.MetricInfo{
-		cmd.MetricInfo{
+		{
 			SchemaFilter: []string{},
 		},
-		cmd.MetricInfo{
+		{
 			SchemaFilter: []string{},
 		},
 	}
@@ -176,11 +176,11 @@ func Test_subSliceInSclice(t *testing.T) {
 
 	refSlice := []string{"S1", "s2", "S3", "s4"}
 	slices := [][]string{
-		[]string{"s1", "S2", "s3", "S4"},
-		[]string{"S2", "S4"},
-		[]string{"s8", "S2", "S5"},
-		[]string{"s0", "S5", "s7"},
-		[]string{},
+		{"s1", "S2", "s3", "S4"},
+		{"S2", "S4"},
+		{"s8", "S2", "S5"},
+		{"s0", "S5", "s7"},
+		{},
 	}
 	resSlice := []bool{true, true, false, false, true}
 
@@ -199,9 +199,9 @@ func Test_FirstValueInSclice(t *testing.T) {
 
 	refSlice := []string{"S1", "S2", "S2"}
 	slices := [][]string{
-		[]string{"s1", "s2", "s2"},
-		[]string{"s2", "s2"},
-		[]string{},
+		{"s1", "s2", "s2"},
+		{"s2", "s2"},
+		{},
 	}
 	resSlice := []string{"s1", "s2", ""}
 

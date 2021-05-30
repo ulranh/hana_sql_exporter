@@ -502,7 +502,7 @@ func FirstValueInSlice(subSlice []string, slice []string) string {
 // GetTestData1 - for testing purpose only
 func (config *Config) GetTestData1(mPos, tPos int) []MetricRecord {
 	mr := []MetricRecord{
-		MetricRecord{
+		{
 			999.0,
 			[]string{"l" + strconv.Itoa(mPos) + strconv.Itoa(tPos)},
 			[]string{"lv" + strconv.Itoa(mPos) + strconv.Itoa(tPos)},
