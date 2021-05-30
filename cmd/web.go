@@ -39,6 +39,7 @@ type collector struct {
 	stats func() []MetricData
 }
 
+// MetricData
 type MetricData struct {
 	Name       string
 	Help       string
@@ -46,6 +47,7 @@ type MetricData struct {
 	Stats      []MetricRecord
 }
 
+// MetricRecord
 type MetricRecord struct {
 	Value       float64
 	Labels      []string
@@ -178,6 +180,7 @@ func (config *Config) Web() error {
 	return nil
 }
 
+// RootHandler
 func RootHandler(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprintf(w, "prometheus hana_sql_exporter: please call <host>:<port>/metrics")
 }
@@ -272,7 +275,8 @@ func (config *Config) GetMetricData(mPos, tPos int) []MetricRecord {
 	defer rows.Close()
 
 	md, err := config.Tenants[tPos].GetMetricRows(rows)
-	if err = rows.Err(); err != nil {
+	// if err = rows.Err(); err != nil {
+	if err != nil {
 		return nil
 	}
 	return md
@@ -447,7 +451,7 @@ func (config *Config) collectRemainingTenantInfos(tPos int) error {
 	return nil
 }
 
-//  AdaptSchemaFilter - add sys schema to SchemaFilter if it does not exists
+// AdaptSchemaFilter - add sys schema to SchemaFilter if it does not exists
 func (config *Config) AdaptSchemaFilter() {
 
 	for mPos := range config.Metrics {
@@ -494,6 +498,7 @@ func FirstValueInSlice(subSlice []string, slice []string) string {
 }
 
 // ---------------------------------------------------------------------
+
 // GetTestData1 - for testing purpose only
 func (config *Config) GetTestData1(mPos, tPos int) []MetricRecord {
 	mr := []MetricRecord{

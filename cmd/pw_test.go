@@ -65,6 +65,7 @@ func Test_GetSecretMap(t *testing.T) {
 	sm, err := config.GetSecretMap()
 	assert.Nil(err)
 	pw, err := cmd.GetPassword(sm, "d01")
+	assert.Nil(err)
 	assert.Equal(pw, pw1)
 
 	// config.Secret == nil
