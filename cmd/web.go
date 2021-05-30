@@ -39,7 +39,7 @@ type collector struct {
 	stats func() []MetricData
 }
 
-// MetricData
+// MetricData - metric data
 type MetricData struct {
 	Name       string
 	Help       string
@@ -47,7 +47,7 @@ type MetricData struct {
 	Stats      []MetricRecord
 }
 
-// MetricRecord
+// MetricRecord - metric stats record
 type MetricRecord struct {
 	Value       float64
 	Labels      []string
@@ -180,7 +180,7 @@ func (config *Config) Web() error {
 	return nil
 }
 
-// RootHandler
+// RootHandler - message, when calling mithout /metrics
 func RootHandler(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprintf(w, "prometheus hana_sql_exporter: please call <host>:<port>/metrics")
 }

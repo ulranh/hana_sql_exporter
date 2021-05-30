@@ -30,7 +30,7 @@ import (
 	"github.com/ulranh/hana_sql_exporter/internal"
 )
 
-// TenantInfo
+// TenantInfo - tennant data
 type TenantInfo struct {
 	Name    string
 	Tags    []string
@@ -41,7 +41,7 @@ type TenantInfo struct {
 	conn    *sql.DB
 }
 
-// MetricInfo
+// MetricInfo - metric data
 type MetricInfo struct {
 	Name         string
 	Help         string
