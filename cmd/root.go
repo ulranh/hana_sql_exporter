@@ -17,6 +17,7 @@ package cmd
 import (
 	"database/sql"
 	"fmt"
+	"net/url"
 	"os"
 	"strings"
 	"time"
@@ -163,7 +164,13 @@ func (config *Config) getConnection(tId int, secretMap internal.Secret) *sql.DB 
 // connect to hana db
 func (config *Config) dbConnect(tId int, pw string) *sql.DB {
 
-	connector, err := goHdbDriver.NewDSNConnector("hdb://" + config.Tenants[tId].User + ":" + pw + "@" + config.Tenants[tId].ConnStr)
+	dsn := fmt.Sprintf("hdb://%s:%s@%s",
+		config.Tenants[tId].User,
+		url.QueryEscape(pw),
+		config.Tenants[tId].ConnStr)
+
+	connector, err := goHdbDriver.NewDSNConnector(dsn)
+
 	if err != nil {
 		return nil
 	}
