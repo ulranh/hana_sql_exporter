@@ -22,3 +22,6 @@ hana_sql_exporter
 
 # Dependency directories (remove the comment below to include it)
 # vendor/
+
+# IntelliJ tools like GoLand
+.idea
