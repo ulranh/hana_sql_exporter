@@ -53,12 +53,13 @@ type MetricInfo struct {
 
 // Config struct with config file infos
 type Config struct {
-	Secret   []byte
-	Tenants  []TenantInfo
-	Metrics  []MetricInfo
-	DataFunc func(mPos, tPos int) []MetricRecord
-	Timeout  uint
-	port     string
+	Secret       []byte
+	Tenants      []TenantInfo
+	Metrics      []MetricInfo
+	DataFunc     func(mPos, tPos int) []MetricRecord
+	Timeout      uint
+	port         string
+	clean_labels bool
 }
 
 var cfgFile string
