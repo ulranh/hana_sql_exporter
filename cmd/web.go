@@ -75,6 +75,10 @@ var webCmd = &cobra.Command{
 		if err != nil {
 			exit("Problem with port flag: ", err)
 		}
+		config.clean_labels, err = cmd.Flags().GetBool("clean_labels")
+		if err != nil {
+			exit("Problem with clean_labels flag: ", err)
+		}
 
 		// set data func
 		config.DataFunc = config.GetMetricData
@@ -91,6 +95,7 @@ func init() {
 
 	webCmd.PersistentFlags().UintP("timeout", "t", 5, "scrape timeout of the hana_sql_exporter in seconds.")
 	webCmd.PersistentFlags().StringP("port", "p", "9658", "port, the hana_sql_exporter listens to.")
+	webCmd.PersistentFlags().BoolP("clean_labels", "c", true, "should be label values lowercase and have space replaced by underscore.")
 }
 
 // create new collector
@@ -274,7 +279,7 @@ func (config *Config) GetMetricData(mPos, tPos int) []MetricRecord {
 	}
 	defer rows.Close()
 
-	md, err := config.Tenants[tPos].GetMetricRows(rows)
+	md, err := config.Tenants[tPos].GetMetricRows(rows, config.clean_labels)
 	// if err = rows.Err(); err != nil {
 	if err != nil {
 		return nil
@@ -313,7 +318,8 @@ func (config *Config) GetSelection(mPos, tPos int) string {
 }
 
 // GetMetricRows - return the metric values
-func (tenant *TenantInfo) GetMetricRows(rows *sql.Rows) ([]MetricRecord, error) {
+func (tenant *TenantInfo) GetMetricRows(rows *sql.Rows,
+	clean_labels bool) ([]MetricRecord, error) {
 
 	cols, err := rows.Columns()
 	if err != nil {
@@ -367,9 +373,14 @@ func (tenant *TenantInfo) GetMetricRows(rows *sql.Rows) ([]MetricRecord, error) 
 					return nil, errors.Wrap(err, "GetMetricRows(ParseFloat - first column cannot be converted to float64)")
 				}
 			} else {
-				data.Labels = append(data.Labels, low(cols[i]))
-				data.LabelValues = append(data.LabelValues, low(strings.Join(strings.Split(string(colval), " "), "_")))
-
+				if clean_labels {
+					data.Labels = append(data.Labels, low(cols[i]))
+					data.LabelValues = append(data.LabelValues,
+						low(strings.Join(strings.Split(string(colval), " "), "_")))
+				} else {
+					data.Labels = append(data.Labels, cols[i])
+					data.LabelValues = append(data.LabelValues, string(colval))
+				}
 			}
 		}
 		md = append(md, data)
